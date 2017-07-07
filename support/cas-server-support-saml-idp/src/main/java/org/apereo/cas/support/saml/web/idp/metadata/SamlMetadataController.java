@@ -8,7 +8,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
@@ -27,17 +26,17 @@ public class SamlMetadataController {
 
     private static final String CONTENT_TYPE = "text/xml;charset=UTF-8";
 
-    private final transient Logger logger = LoggerFactory.getLogger(this.getClass());
-
-
-    @Resource(name = "shibbolethIdpMetadataAndCertificatesGenerationService")
-    private SamlIdpMetadataAndCertificatesGenerationService metadataAndCertificatesGenerationService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SamlMetadataController.class);
+    private final SamlIdpMetadataAndCertificatesGenerationService metadataAndCertificatesGenerationService;
 
     /**
      * Instantiates a new Saml metadata controller.
      * Required for bean initialization.
+     *
+     * @param metadataAndCertificatesGenerationService the metadata and certificates generation service
      */
-    public SamlMetadataController() {
+    public SamlMetadataController(final SamlIdpMetadataAndCertificatesGenerationService metadataAndCertificatesGenerationService) {
+        this.metadataAndCertificatesGenerationService = metadataAndCertificatesGenerationService;
     }
 
     /**
@@ -57,14 +56,14 @@ public class SamlMetadataController {
      * @param response servlet response
      * @throws IOException the iO exception
      */
-    @GetMapping(value = SamlIdPConstants.ENDPOINT_IDP_METADATA)
+    @GetMapping(path = SamlIdPConstants.ENDPOINT_IDP_METADATA)
     public void generateMetadataForIdp(final HttpServletResponse response) throws IOException {
         final File metadataFile = this.metadataAndCertificatesGenerationService.performGenerationSteps();
         final String contents = FileUtils.readFileToString(metadataFile, StandardCharsets.UTF_8);
         response.setContentType(CONTENT_TYPE);
         response.setStatus(HttpServletResponse.SC_OK);
         try (PrintWriter writer = response.getWriter()) {
-            logger.debug("Producing metadata for the response");
+            LOGGER.debug("Producing metadata for the response");
             writer.write(contents);
             writer.flush();
         }

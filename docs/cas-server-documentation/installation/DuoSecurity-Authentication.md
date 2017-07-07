@@ -22,12 +22,21 @@ Duo offers several options for authenticating users:
 </dependency>
 ```
 
+You may need to add the following repositories to the WAR overlay:
+
+```xml
+<repository>
+    <id>duo</id>
+    <url>https://dl.bintray.com/uniconiam/maven</url>
+</repository>
+```
+
 ## Multiple Instances
 
 CAS multifactor authentication support for Duo Security allows
 multiple Duo providers to be configured with distinct ids each of
 which may be connected to a separate Duo Security instance with a different configuration.
-This behvaior allows more sensitive applications to be connected
+This behavior allows more sensitive applications to be connected
 to a Duo instance that has more strict and secure authentication policies.
 
 For this behavior to function, separate unique ids of your own choosing need to be assigned to each Duo Security
@@ -43,22 +52,18 @@ user account is not registered yet the new-user enrollment policy allows folks t
 Duo Security altogether, shall not challenge the user
 and will also **NOT** report back a multifactor-enabled authentication context back to the application.
 
-<div class="alert alert-info"><strong>Subscription Qualification</strong><p>This behavior
-requires that the Duo Security integration provides sufficient access so CAS can query
-the account status via <a href="https://duo.com/docs/adminapi">Duo Security Admin APIs</a>.</p></div>
-
 ## Non-Browser MFA
 
 The Duo Security module of CAS is able to also support [non-browser based multifactor authentication](https://duo.com/docs/authapi) requests.
 In order to trigger this behavior, applications (i.e. `curl`, REST APIs, etc) need to specify a special
 `Content-Type` to signal to CAS that the request is submitted from a non-web based environment.
 
-In order to successfully complete the authentication flow, CAS must also be configured with a method 
+In order to successfully complete the authentication flow, CAS must also be configured with a method
 of primary authentication that is able to support non-web based environments.
 
 Here is an example using `curl` that attempts to authenticate into a service by first exercising
-basic authentication while identifying the request content type as `application/cas`. It is assumed that the 
-service below is configured in CAS with a special multifactor policy that forces the flow 
+basic authentication while identifying the request content type as `application/cas`. It is assumed that the
+service below is configured in CAS with a special multifactor policy that forces the flow
 to pass through Duo Security as well.
 
 ```bash
@@ -67,4 +72,4 @@ curl --location --header "Content-Type: application/cas" https://apps.example.or
 
 ## Configuration
 
-To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html).
+To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html#duosecurity).

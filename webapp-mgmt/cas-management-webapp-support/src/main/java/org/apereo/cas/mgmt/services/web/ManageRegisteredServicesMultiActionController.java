@@ -1,13 +1,16 @@
 package org.apereo.cas.mgmt.services.web;
 
 import org.apereo.cas.authentication.principal.Service;
-import org.apereo.cas.authentication.principal.WebApplicationServiceFactory;
+import org.apereo.cas.authentication.principal.ServiceFactory;
+import org.apereo.cas.authentication.principal.WebApplicationService;
 import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceViewBean;
 import org.apereo.cas.mgmt.services.web.factory.RegisteredServiceFactory;
 import org.apereo.cas.services.RegexRegisteredService;
 import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.services.ServicesManager;
-import org.apereo.cas.util.serialization.JsonUtils;
+import org.apereo.cas.util.JsonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +36,8 @@ import java.util.stream.Collectors;
  */
 @Controller("manageRegisteredServicesMultiActionController")
 public class ManageRegisteredServicesMultiActionController extends AbstractManagementController {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(ManageRegisteredServicesMultiActionController.class);
+    
     private static final String STATUS = "status";
 
     private RegisteredServiceFactory registeredServiceFactory;
@@ -43,17 +47,19 @@ public class ManageRegisteredServicesMultiActionController extends AbstractManag
     /**
      * Instantiates a new manage registered services multi action controller.
      *
-     * @param servicesManager          the services manager
-     * @param registeredServiceFactory the registered service factory
-     * @param defaultServiceUrl        the default service url
+     * @param servicesManager              the services manager
+     * @param registeredServiceFactory     the registered service factory
+     * @param webApplicationServiceFactory the web application service factory
+     * @param defaultServiceUrl            the default service url
      */
     public ManageRegisteredServicesMultiActionController(
             final ServicesManager servicesManager,
             final RegisteredServiceFactory registeredServiceFactory,
+            final ServiceFactory<WebApplicationService> webApplicationServiceFactory,
             final String defaultServiceUrl) {
         super(servicesManager);
         this.registeredServiceFactory = registeredServiceFactory;
-        this.defaultService = new WebApplicationServiceFactory().createService(defaultServiceUrl);
+        this.defaultService = webApplicationServiceFactory.createService(defaultServiceUrl);
     }
 
     /**
@@ -95,7 +101,7 @@ public class ManageRegisteredServicesMultiActionController extends AbstractManag
      */
     @GetMapping(value = "/logout")
     public String logoutView(final HttpServletRequest request, final HttpSession session) {
-        logger.debug("Invalidating application session...");
+        LOGGER.debug("Invalidating application session...");
         session.invalidate();
         return "logout";
     }

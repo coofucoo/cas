@@ -6,7 +6,7 @@ title: CAS - Mongo Service Registry
 # Mongo Service Registry
 
 This registry uses a [MongoDb](https://www.mongodb.org/) instance to load and persist service definitions.
-Support is enabled by adding the following module into the Maven overlay:
+Support is enabled by adding the following module into the overlay:
 
 ```xml
 <dependency>
@@ -19,13 +19,12 @@ Support is enabled by adding the following module into the Maven overlay:
 ## Configuration
 
 This implementation auto-configures most of the internal details.
-To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html).
+To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html#mongodb-service-registry).
 
 ## Auto Initialization
 
-Upon startup and configuration permitting, 
-the registry is able to auto initialize itself from default 
+Upon startup and configuration permitting,
+the registry is able to auto initialize itself from default
 JSON service definitions available to CAS.
 
-To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html).
-
+To see the relevant list of CAS properties, please [review this guide](Configuration-Properties.html#service-registry).

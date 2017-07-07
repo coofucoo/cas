@@ -3,7 +3,7 @@ package org.apereo.cas.support.oauth.authenticator;
 import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.support.oauth.profile.OAuthClientProfile;
 import org.apereo.cas.support.oauth.services.OAuthRegisteredService;
-import org.apereo.cas.support.oauth.util.OAuthUtils;
+import org.apereo.cas.support.oauth.util.OAuth20Utils;
 import org.apereo.cas.support.oauth.validator.OAuth20Validator;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.UsernamePasswordCredentials;
@@ -18,16 +18,21 @@ import org.pac4j.core.exception.CredentialsException;
  */
 public class OAuthClientAuthenticator implements Authenticator<UsernamePasswordCredentials> {
 
-    private OAuth20Validator validator;
+    private final OAuth20Validator validator;
 
-    private ServicesManager servicesManager;
+    private final ServicesManager servicesManager;
+
+    public OAuthClientAuthenticator(final OAuth20Validator validator, final ServicesManager servicesManager) {
+        this.validator = validator;
+        this.servicesManager = servicesManager;
+    }
 
     @Override
     public void validate(final UsernamePasswordCredentials credentials, final WebContext context)
             throws CredentialsException {
         final String id = credentials.getUsername();
         final String secret = credentials.getPassword();
-        final OAuthRegisteredService registeredService = OAuthUtils.getRegisteredOAuthService(this.servicesManager, id);
+        final OAuthRegisteredService registeredService = OAuth20Utils.getRegisteredOAuthService(this.servicesManager, id);
 
         if (!this.validator.checkServiceValid(registeredService)) {
             throw new CredentialsException("Service invalid for client identifier: " + id);
@@ -40,21 +45,5 @@ public class OAuthClientAuthenticator implements Authenticator<UsernamePasswordC
         final OAuthClientProfile profile = new OAuthClientProfile();
         profile.setId(id);
         credentials.setUserProfile(profile);
-    }
-
-    public OAuth20Validator getValidator() {
-        return this.validator;
-    }
-
-    public void setValidator(final OAuth20Validator validator) {
-        this.validator = validator;
-    }
-
-    public ServicesManager getServicesManager() {
-        return this.servicesManager;
-    }
-
-    public void setServicesManager(final ServicesManager servicesManager) {
-        this.servicesManager = servicesManager;
     }
 }

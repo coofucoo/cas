@@ -1,10 +1,10 @@
 package org.apereo.cas.web;
 
-import com.google.common.collect.ImmutableMap;
-import org.apereo.cas.config.CasEmbeddedContainerConfiguration;
-import org.apereo.cas.util.CasBanner;
+import org.apereo.cas.CasEmbeddedContainerUtils;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.support.SpringBootServletInitializer;
+
+import java.util.Map;
 
 /**
  * This is {@link CasWebApplicationServletInitializer}.
@@ -16,9 +16,10 @@ public class CasWebApplicationServletInitializer extends SpringBootServletInitia
 
     @Override
     protected SpringApplicationBuilder configure(final SpringApplicationBuilder builder) {
+        final Map<String, Object> properties = CasEmbeddedContainerUtils.getRuntimeProperties(Boolean.FALSE);
         return builder
                 .sources(CasWebApplication.class)
-                .properties(ImmutableMap.of(CasEmbeddedContainerConfiguration.EMBEDDED_CONTAINER_CONFIG_ACTIVE, Boolean.FALSE))
-                .banner(new CasBanner());
+                .properties(properties)
+                .banner(CasEmbeddedContainerUtils.getCasBannerInstance());
     }
 }

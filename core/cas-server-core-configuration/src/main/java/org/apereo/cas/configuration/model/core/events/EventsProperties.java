@@ -1,7 +1,7 @@
 package org.apereo.cas.configuration.model.core.events;
 
 import org.apereo.cas.configuration.model.support.jpa.AbstractJpaProperties;
-import org.apereo.cas.configuration.model.support.mongo.AbstractMongoProperties;
+import org.apereo.cas.configuration.model.support.mongo.AbstractMongoClientProperties;
 
 /**
  * Configuration properties class for events.
@@ -13,7 +13,8 @@ import org.apereo.cas.configuration.model.support.mongo.AbstractMongoProperties;
 public class EventsProperties {
 
     private boolean trackGeolocation;
-
+    private boolean trackConfigurationModifications = true;
+    
     private Jpa jpa = new Jpa();
 
     private Mongodb mongodb = new Mongodb();
@@ -34,6 +35,14 @@ public class EventsProperties {
         this.trackGeolocation = trackGeolocation;
     }
 
+    public boolean isTrackConfigurationModifications() {
+        return trackConfigurationModifications;
+    }
+
+    public void setTrackConfigurationModifications(final boolean trackConfigurationModifications) {
+        this.trackConfigurationModifications = trackConfigurationModifications;
+    }
+
     public Jpa getJpa() {
         return jpa;
     }
@@ -43,9 +52,12 @@ public class EventsProperties {
     }
 
     public static class Jpa extends AbstractJpaProperties {
+        private static final long serialVersionUID = 7647381223153797806L;
     }
 
-    public static class Mongodb extends AbstractMongoProperties {
+    public static class Mongodb extends AbstractMongoClientProperties {
+        private static final long serialVersionUID = -1918436901491275547L;
+
         public Mongodb() {
             setCollection("MongoDbCasEventRepository");
         }

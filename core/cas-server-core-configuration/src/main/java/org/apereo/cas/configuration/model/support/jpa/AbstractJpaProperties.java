@@ -1,8 +1,12 @@
 package org.apereo.cas.configuration.model.support.jpa;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apereo.cas.configuration.model.support.ConnectionPoolingProperties;
 import org.apereo.cas.configuration.support.Beans;
-import org.apereo.cas.configuration.support.ConnectionPoolingProperties;
+
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Common properties for all jpa configs.
@@ -10,35 +14,47 @@ import org.apereo.cas.configuration.support.ConnectionPoolingProperties;
  * @author Dmitriy Kopylenko
  * @since 5.0.0
  */
-public abstract class AbstractJpaProperties {
+public abstract class AbstractJpaProperties implements Serializable {
 
+    private static final long serialVersionUID = 761486823496930920L;
     private String dialect = "org.hibernate.dialect.HSQLDialect";
-
     private String ddlAuto = "create-drop";
-
-    private String batchSize = "1";
-
     private String driverClass = "org.hsqldb.jdbcDriver";
-
     private String url = "jdbc:hsqldb:mem:cas-hsql-database";
-
     private String user = "sa";
-
     private String password = StringUtils.EMPTY;
+    private String defaultCatalog;
+    private String defaultSchema;
+    private String healthQuery = StringUtils.EMPTY;
+    private String idleTimeout = "PT10M";
+    private String dataSourceName;
+    private Map<String, String> properties = new HashMap<String, String>();
 
     private ConnectionPoolingProperties pool = new ConnectionPoolingProperties();
 
-    private String idleTimeout = "PT5S";
-
-    private int leakThreshold = 10;
+    private int leakThreshold = 3_000;
+    private int batchSize = 1;
 
     private boolean failFast = true;
-
     private boolean isolateInternalQueries;
-
-    private String healthQuery = "SELECT 1 FROM INFORMATION_SCHEMA.SYSTEM_USERS";
-
     private boolean autocommit;
+    private boolean dataSourceProxy;
+
+    public String getDefaultCatalog() {
+        return defaultCatalog;
+    }
+
+    public void setDefaultCatalog(final String defaultCatalog) {
+        this.defaultCatalog = defaultCatalog;
+    }
+
+    public String getDefaultSchema() {
+        return defaultSchema;
+    }
+
+    public void setDefaultSchema(final String defaultSchema) {
+        this.defaultSchema = defaultSchema;
+    }
 
     public String getDialect() {
         return dialect;
@@ -56,11 +72,11 @@ public abstract class AbstractJpaProperties {
         this.ddlAuto = ddlAuto;
     }
 
-    public String getBatchSize() {
+    public int getBatchSize() {
         return batchSize;
     }
 
-    public void setBatchSize(final String batchSize) {
+    public void setBatchSize(final int batchSize) {
         this.batchSize = batchSize;
     }
 
@@ -150,5 +166,29 @@ public abstract class AbstractJpaProperties {
 
     public void setAutocommit(final boolean autocommit) {
         this.autocommit = autocommit;
+    }
+
+    public String getDataSourceName() {
+        return dataSourceName;
+    }
+
+    public void setDataSourceName(final String dataSourceName) {
+        this.dataSourceName = dataSourceName;
+    }
+
+    public boolean isDataSourceProxy() {
+        return dataSourceProxy;
+    }
+
+    public void setDataSourceProxy(final boolean dataSourceProxy) {
+        this.dataSourceProxy = dataSourceProxy;
+    }
+
+    public Map<String, String> getProperties() {
+        return properties;
+    }
+
+    public void setProperties(final Map<String, String> properties) {
+        this.properties = properties;
     }
 }

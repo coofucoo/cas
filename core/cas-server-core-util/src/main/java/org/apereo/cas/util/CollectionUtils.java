@@ -1,12 +1,17 @@
 package org.apereo.cas.util;
 
+import com.google.common.collect.Multimap;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,39 +35,73 @@ public final class CollectionUtils {
      * @return The collection instance containing the object provided
      */
     @SuppressWarnings("unchecked")
-    public static Set<Object> convertValueToCollection(final Object obj) {
+    public static Set<Object> toCollection(final Object obj) {
         final Set<Object> c = new HashSet<>();
         if (obj == null) {
             LOGGER.debug("Converting null obj to empty collection");
         } else if (obj instanceof Collection) {
             c.addAll((Collection<Object>) obj);
-            LOGGER.debug("Converting multi-valued attribute [{}]", obj);
+            LOGGER.trace("Converting multi-valued attribute [{}]", obj);
         } else if (obj instanceof Map) {
             throw new UnsupportedOperationException(Map.class.getCanonicalName() + " is not supported");
         } else if (obj.getClass().isArray()) {
             Collections.addAll(c, obj);
-            LOGGER.debug("Converting array attribute [{}]", obj);
+            LOGGER.trace("Converting array attribute [{}]", obj);
         } else {
             c.add(obj);
-            LOGGER.debug("Converting attribute [{}]", obj);
+            LOGGER.trace("Converting attribute [{}]", obj);
         }
         return c;
     }
 
     /**
+     * Wrap map.
+     *
+     * @param <K>    the type parameter
+     * @param <V>    the type parameter
+     * @param source the source
+     * @return the map
+     */
+    public static <K, V> Map<K, Collection<V>> wrap(final Multimap<K, V> source) {
+        if (source != null && !source.isEmpty()) {
+            final Map inner = source.asMap();
+            final Map map = new HashMap<>();
+            inner.forEach((k, v) -> map.put(k, wrap(v)));
+            return map;
+        }
+        return new HashMap<>();
+    }
+
+    /**
      * Wraps a possibly null map in an immutable wrapper.
      *
-     * @param <K> the key type
-     * @param <V> the value type
-     * @param source Nullable map to wrap.
-     * @return {@link Collections#unmodifiableMap(java.util.Map)} if given map is not null, otherwise
-     * {@link java.util.Collections#emptyMap()}.
+     * @param <K>    the key type
+     * @param <V>    the value type
+     * @param source map to wrap.
+     * @return the map
      */
     public static <K, V> Map<K, V> wrap(final Map<K, V> source) {
-        if (source != null) {
+        if (source != null && !source.isEmpty()) {
             return new HashMap<>(source);
         }
-        return Collections.emptyMap();
+        return new HashMap<>();
+    }
+
+    /**
+     * Wrap map.
+     *
+     * @param <K>   the type parameter
+     * @param <V>   the type parameter
+     * @param key   the key
+     * @param value the value
+     * @return the map
+     */
+    public static <K, V> Map<K, V> wrap(final String key, final Object value) {
+        final Map map = new HashMap<>();
+        if (StringUtils.isNotBlank(key)) {
+            map.put(key, value);
+        }
+        return map;
     }
 
     /**
@@ -70,12 +109,65 @@ public final class CollectionUtils {
      *
      * @param <T>    the type parameter
      * @param source Nullable list to wrap.
-     * @return {@link Collections#unmodifiableList(List)} if given list is not null, otherwise {@link java.util.Collections#EMPTY_LIST}.
+     * @return the list
+     */
+    public static <T> List<T> wrap(final T source) {
+        final List<T> list = new ArrayList<>();
+        if (source != null) {
+            if (source instanceof Collection) {
+                final Iterator it = ((Collection) source).iterator();
+                while (it.hasNext()) {
+                    list.add((T) it.next());
+                }
+            } else {
+                list.add(source);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Wraps a possibly null list in an immutable wrapper.
+     *
+     * @param <T>    the type parameter
+     * @param source Nullable list to wrap.
+     * @return the list
      */
     public static <T> List<T> wrap(final List<T> source) {
-        if (source != null) {
-            return Collections.unmodifiableList(source);
+        final List<T> list = new ArrayList<>();
+        if (source != null && !source.isEmpty()) {
+            list.addAll(source);
         }
-        return Collections.emptyList();
+        return list;
+    }
+
+    /**
+     * Wrap varargs.
+     *
+     * @param <T>    the type parameter
+     * @param source the source
+     * @return the set
+     */
+    public static <T> Set<T> wrap(final Set<T> source) {
+        final Set<T> list = new LinkedHashSet<>();
+        if (source != null && !source.isEmpty()) {
+            list.addAll(source);
+        }
+        return list;
+    }
+
+    /**
+     * Wrap set set.
+     *
+     * @param <T>    the type parameter
+     * @param source the source
+     * @return the set
+     */
+    public static <T> Set<T> wrapSet(final T source) {
+        final Set<T> list = new LinkedHashSet<>();
+        if (source != null) {
+            list.add(source);
+        }
+        return list;
     }
 }

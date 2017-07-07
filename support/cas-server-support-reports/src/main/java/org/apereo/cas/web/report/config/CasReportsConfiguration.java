@@ -5,28 +5,38 @@ import com.codahale.metrics.health.HealthCheckRegistry;
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.CentralAuthenticationService;
 import org.apereo.cas.audit.spi.DelegatingAuditTrailManager;
-import org.apereo.cas.authentication.AuthenticationSystemSupport;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.monitor.HealthStatus;
 import org.apereo.cas.monitor.Monitor;
-import org.apereo.cas.support.events.dao.CasEventRepository;
+import org.apereo.cas.services.ServicesManager;
+import org.apereo.cas.support.events.CasEventRepository;
+import org.apereo.cas.ticket.registry.TicketRegistrySupport;
 import org.apereo.cas.trusted.authentication.api.MultifactorAuthenticationTrustStorage;
 import org.apereo.cas.web.report.AuthenticationEventsController;
+import org.apereo.cas.web.report.ConfigurationStateController;
 import org.apereo.cas.web.report.DashboardController;
 import org.apereo.cas.web.report.HealthCheckController;
-import org.apereo.cas.web.report.ConfigurationStateController;
 import org.apereo.cas.web.report.LoggingConfigController;
+import org.apereo.cas.web.report.LoggingOutputSocketMessagingController;
+import org.apereo.cas.web.report.MetricsController;
+import org.apereo.cas.web.report.PersonDirectoryAttributeResolutionController;
+import org.apereo.cas.web.report.RegisteredServicesReportController;
+import org.apereo.cas.web.report.SingleSignOnSessionStatusController;
 import org.apereo.cas.web.report.SingleSignOnSessionsReportController;
+import org.apereo.cas.web.report.SpringWebflowReportController;
 import org.apereo.cas.web.report.StatisticsController;
 import org.apereo.cas.web.report.TrustedDevicesController;
+import org.apereo.cas.web.support.CookieRetrievingCookieGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.actuate.endpoint.mvc.MvcEndpoint;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.AbstractWebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -35,7 +45,9 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 
 /**
  * This is {@link CasReportsConfiguration}.
- *
+ * The {@link MvcEndpoint} instances in this configuration class
+ * MUST NOT be marked as {@link org.springframework.cloud.context.config.annotation.RefreshScope}
+ * because they are not quite reloadable and the proxy that is created interferes with web mvc.
  * @author Misagh Moayyed
  * @since 5.0.0
  */
@@ -43,6 +55,21 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 @EnableConfigurationProperties(CasConfigurationProperties.class)
 @EnableWebSocketMessageBroker
 public class CasReportsConfiguration extends AbstractWebSocketMessageBrokerConfigurer {
+
+    @Autowired
+    @Qualifier("defaultTicketRegistrySupport")
+    private TicketRegistrySupport ticketRegistrySupport;
+
+    @Autowired
+    @Qualifier("servicesManager")
+    private ServicesManager servicesManager;
+
+    @Autowired
+    @Qualifier("ticketGrantingTicketCookieGenerator")
+    private CookieRetrievingCookieGenerator ticketGrantingTicketCookieGenerator;
+
+    @Autowired
+    private CasConfigurationProperties casProperties;
 
     @Autowired
     private ServerProperties serverProperties;
@@ -55,10 +82,6 @@ public class CasReportsConfiguration extends AbstractWebSocketMessageBrokerConfi
     @Qualifier("centralAuthenticationService")
     private CentralAuthenticationService centralAuthenticationService;
 
-    @Autowired(required = false)
-    @Qualifier("defaultAuthenticationSystemSupport")
-    private AuthenticationSystemSupport authenticationSystemSupport;
-
     @Autowired
     @Qualifier("metrics")
     private MetricRegistry metricsRegistry;
@@ -67,51 +90,98 @@ public class CasReportsConfiguration extends AbstractWebSocketMessageBrokerConfi
     @Qualifier("healthCheckMetrics")
     private HealthCheckRegistry healthCheckRegistry;
 
-    @RefreshScope
     @Bean
-    public DashboardController dashboardController() {
-        return new DashboardController();
-    }
-
-
-    @RefreshScope
-    @Bean
-    public ConfigurationStateController internalConfigController() {
-        return new ConfigurationStateController();
+    public MvcEndpoint dashboardController() {
+        return new DashboardController(casProperties);
     }
 
     @Bean
-    public HealthCheckController healthCheckController() {
-        final HealthCheckController c = new HealthCheckController();
-        c.setHealthCheckMonitor(healthCheckMonitor);
-        return c;
+    public MvcEndpoint personDirectoryAttributeResolutionController() {
+        return new PersonDirectoryAttributeResolutionController(casProperties);
+    }
+
+    @Profile("standalone")
+    @ConditionalOnBean(name = "configurationPropertiesEnvironmentManager")
+    @Bean
+    public MvcEndpoint internalConfigController() {
+        return new ConfigurationStateController(casProperties);
     }
 
     @Bean
-    public SingleSignOnSessionsReportController singleSignOnSessionsReportController() {
-        final SingleSignOnSessionsReportController c = new SingleSignOnSessionsReportController();
-        c.setCentralAuthenticationService(centralAuthenticationService);
-        c.setAuthenticationSystemSupport(authenticationSystemSupport);
-        return c;
+    public MvcEndpoint healthCheckController() {
+        return new HealthCheckController(healthCheckMonitor, casProperties);
     }
 
-    @RefreshScope
+    @Bean
+    public MvcEndpoint singleSignOnSessionsReportController() {
+        return new SingleSignOnSessionsReportController(centralAuthenticationService, casProperties);
+    }
+
+    @Bean
+    public MvcEndpoint registeredServicesReportController() {
+        return new RegisteredServicesReportController(casProperties, servicesManager);
+    }
+
     @Bean
     @Autowired
-    public LoggingConfigController loggingConfigController(@Qualifier("auditTrailManager")
-                                                           final DelegatingAuditTrailManager auditTrailManager) {
-        final LoggingConfigController c = new LoggingConfigController();
-        c.setAuditTrailManager(auditTrailManager);
-        return c;
+    public MvcEndpoint loggingConfigController(@Qualifier("auditTrailManager") final DelegatingAuditTrailManager auditTrailManager) {
+        return new LoggingConfigController(auditTrailManager, casProperties);
     }
 
     @Bean
-    public StatisticsController statisticsController() {
-        final StatisticsController c = new StatisticsController();
-        c.setCentralAuthenticationService(centralAuthenticationService);
-        c.setHealthCheckRegistry(healthCheckRegistry);
-        c.setMetricsRegistry(metricsRegistry);
-        return c;
+    public MvcEndpoint ssoStatusController() {
+        return new SingleSignOnSessionStatusController(ticketGrantingTicketCookieGenerator, ticketRegistrySupport, casProperties);
+    }
+
+    @Bean
+    public MvcEndpoint swfReportController() {
+        return new SpringWebflowReportController(casProperties);
+    }
+
+    @Autowired
+    @Bean
+    public MvcEndpoint statisticsController(@Qualifier("auditTrailManager") final DelegatingAuditTrailManager auditTrailManager) {
+        return new StatisticsController(auditTrailManager, centralAuthenticationService,
+                metricsRegistry, healthCheckRegistry, casProperties);
+    }
+
+    @Bean
+    public MvcEndpoint metricsController() {
+        return new MetricsController(casProperties);
+    }
+
+    @Bean
+    public LoggingOutputSocketMessagingController loggingOutputController() {
+        return new LoggingOutputSocketMessagingController();
+    }
+
+
+    /**
+     * The type Trusted devices configuration.
+     */
+    @ConditionalOnClass(value = MultifactorAuthenticationTrustStorage.class)
+    @Configuration("trustedDevicesConfiguration")
+    public class TrustedDevicesConfiguration {
+
+        @Autowired
+        @Bean
+        public MvcEndpoint trustedDevicesController(@Qualifier("mfaTrustEngine") final MultifactorAuthenticationTrustStorage mfaTrustEngine) {
+            return new TrustedDevicesController(mfaTrustEngine, casProperties);
+        }
+    }
+
+    /**
+     * The type Authentication events configuration.
+     */
+    @ConditionalOnClass(value = CasEventRepository.class)
+    @Configuration("authenticationEventsConfiguration")
+    public class AuthenticationEventsConfiguration {
+
+        @Autowired
+        @Bean
+        public MvcEndpoint authenticationEventsController(@Qualifier("casEventRepository") final CasEventRepository eventRepository) {
+            return new AuthenticationEventsController(eventRepository, casProperties);
+        }
     }
 
     @Override
@@ -127,35 +197,5 @@ public class CasReportsConfiguration extends AbstractWebSocketMessageBrokerConfi
         registry.addEndpoint("/logoutput")
                 .addInterceptors(new HttpSessionHandshakeInterceptor())
                 .withSockJS();
-    }
-
-    /**
-     * The Trusted devices configuration for the UI.
-     */
-    @ConditionalOnClass(value = MultifactorAuthenticationTrustStorage.class)
-    @Configuration("trustedDevicesConfiguration")
-    public static class TrustedDevicesConfiguration {
-
-        @Autowired
-        @Bean
-        public TrustedDevicesController trustedDevicesController(@Qualifier("mfaTrustEngine")
-                                                                 final MultifactorAuthenticationTrustStorage mfaTrustEngine) {
-            return new TrustedDevicesController(mfaTrustEngine);
-        }
-    }
-
-    /**
-     * The type Authentication events configuration.
-     */
-    @ConditionalOnClass(value = CasEventRepository.class)
-    @Configuration("authenticationEventsConfiguration")
-    public static class AuthenticationEventsConfiguration {
-
-        @Autowired
-        @Bean
-        public AuthenticationEventsController authenticationEventsController(@Qualifier("casEventRepository")
-                                                                            final CasEventRepository eventRepository) {
-            return new AuthenticationEventsController(eventRepository);
-        }
     }
 }

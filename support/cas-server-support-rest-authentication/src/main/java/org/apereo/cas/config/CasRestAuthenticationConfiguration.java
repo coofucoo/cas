@@ -13,10 +13,13 @@ import org.apereo.cas.adaptors.rest.RestAuthenticationApi;
 import org.apereo.cas.adaptors.rest.RestAuthenticationHandler;
 import org.apereo.cas.authentication.AuthenticationHandler;
 import org.apereo.cas.authentication.principal.PrincipalResolver;
+import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.configuration.CasConfigurationProperties;
+import org.apereo.cas.configuration.model.support.rest.RestAuthenticationProperties;
 import org.apereo.cas.configuration.support.Beans;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
@@ -26,15 +29,13 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-import javax.annotation.PostConstruct;
 import java.net.URI;
-import java.util.Map;
-
 
 /**
  * This is {@link CasRestAuthenticationConfiguration}.
  *
  * @author Misagh Moayyed
+ * @author Dmitriy Kopylenko
  * @since 5.0.0
  */
 @Configuration("casRestAuthenticationConfiguration")
@@ -42,15 +43,11 @@ import java.util.Map;
 public class CasRestAuthenticationConfiguration {
 
     @Autowired
-    private CasConfigurationProperties casProperties;
-
-    @Autowired
     @Qualifier("personDirectoryPrincipalResolver")
     private PrincipalResolver personDirectoryPrincipalResolver;
 
     @Autowired
-    @Qualifier("authenticationHandlersResolvers")
-    private Map authenticationHandlersResolvers;
+    private CasConfigurationProperties casProperties;
 
     @Bean
     @RefreshScope
@@ -65,30 +62,30 @@ public class CasRestAuthenticationConfiguration {
         }
     }
 
+    @ConditionalOnMissingBean(name = "restAuthenticationApi")
     @Bean
     @RefreshScope
     public RestAuthenticationApi restAuthenticationApi() {
-        final RestAuthenticationApi api = new RestAuthenticationApi();
-        api.setAuthenticationUri(casProperties.getAuthn().getRest().getUri());
-        api.setRestTemplate(restAuthenticationTemplate());
-        return api;
+        return new RestAuthenticationApi(restAuthenticationTemplate(), casProperties.getAuthn().getRest().getUri());
     }
 
     @Bean
     @RefreshScope
     public AuthenticationHandler restAuthenticationHandler() {
-        final RestAuthenticationHandler r = new RestAuthenticationHandler();
-        r.setApi(restAuthenticationApi());
-        r.setName(casProperties.getAuthn().getRest().getName());
-        r.setPasswordEncoder(Beans.newPasswordEncoder(casProperties.getAuthn().getRest().getPasswordEncoder()));
+        final RestAuthenticationProperties rest = casProperties.getAuthn().getRest();
+        final RestAuthenticationHandler r = new RestAuthenticationHandler(rest.getName(), restAuthenticationApi());
+        r.setPasswordEncoder(Beans.newPasswordEncoder(rest.getPasswordEncoder()));
         return r;
     }
 
-    @PostConstruct
-    protected void initializeRootApplicationContext() {
-        if (StringUtils.isNotBlank(casProperties.getAuthn().getRest().getUri())) {
-            authenticationHandlersResolvers.put(restAuthenticationHandler(), personDirectoryPrincipalResolver);
-        }
+    @ConditionalOnMissingBean(name = "casRestAuthenticationEventExecutionPlanConfigurer")
+    @Bean
+    public AuthenticationEventExecutionPlanConfigurer casRestAuthenticationEventExecutionPlanConfigurer() {
+        return plan -> {
+            if (StringUtils.isNotBlank(casProperties.getAuthn().getRest().getUri())) {
+                plan.registerAuthenticationHandlerWithPrincipalResolver(restAuthenticationHandler(), personDirectoryPrincipalResolver);
+            }
+        };
     }
 
     private static class HttpComponentsClientHttpRequestFactoryBasicAuth extends HttpComponentsClientHttpRequestFactory {

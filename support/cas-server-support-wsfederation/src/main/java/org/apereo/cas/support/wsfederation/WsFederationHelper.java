@@ -2,6 +2,7 @@ package org.apereo.cas.support.wsfederation;
 
 import com.google.common.base.Throwables;
 import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apereo.cas.support.saml.OpenSamlConfigBean;
 import org.apereo.cas.support.saml.SamlUtils;
 import org.apereo.cas.support.wsfederation.authentication.principal.WsFederationCredential;
@@ -23,8 +24,6 @@ import org.opensaml.saml.common.xml.SAMLConstants;
 import org.opensaml.saml.criterion.EntityRoleCriterion;
 import org.opensaml.saml.criterion.ProtocolCriterion;
 import org.opensaml.saml.saml1.core.Assertion;
-import org.opensaml.saml.saml1.core.Attribute;
-import org.opensaml.saml.saml1.core.AttributeStatement;
 import org.opensaml.saml.saml1.core.Conditions;
 import org.opensaml.saml.saml2.encryption.Decrypter;
 import org.opensaml.saml.saml2.encryption.EncryptedElementTypeEncryptedKeyResolver;
@@ -46,6 +45,7 @@ import org.opensaml.xmlsec.encryption.support.InlineEncryptedKeyResolver;
 import org.opensaml.xmlsec.encryption.support.SimpleRetrievalMethodEncryptedKeyResolver;
 import org.opensaml.xmlsec.keyinfo.KeyInfoCredentialResolver;
 import org.opensaml.xmlsec.keyinfo.impl.StaticKeyInfoCredentialResolver;
+import org.opensaml.xmlsec.signature.Signature;
 import org.opensaml.xmlsec.signature.support.SignatureException;
 import org.opensaml.xmlsec.signature.support.SignaturePrevalidator;
 import org.opensaml.xmlsec.signature.support.SignatureTrustEngine;
@@ -64,8 +64,12 @@ import java.security.KeyPair;
 import java.security.Security;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Helper class that does the heavy lifting with the openSaml library.
@@ -92,7 +96,7 @@ public class WsFederationHelper {
      */
     public WsFederationCredential createCredentialFromToken(final Assertion assertion) {
         final ZonedDateTime retrievedOn = ZonedDateTime.now();
-        LOGGER.debug("Retrieved on {}", retrievedOn);
+        LOGGER.debug("Retrieved on [{}]", retrievedOn);
 
         final WsFederationCredential credential = new WsFederationCredential();
         credential.setRetrievedOn(retrievedOn);
@@ -116,36 +120,29 @@ public class WsFederationHelper {
 
         //retrieve an attributes from the assertion
         final HashMap<String, List<Object>> attributes = new HashMap<>();
-        for (final AttributeStatement attributeStatement : assertion.getAttributeStatements()) {
-            for (final Attribute item : attributeStatement.getAttributes()) {
-                LOGGER.debug("Processed attribute: {}", item.getAttributeName());
-
-                final List<Object> itemList = new ArrayList<>();
-                for (int i = 0; i < item.getAttributeValues().size(); i++) {
-                    itemList.add(((XSAny) item.getAttributeValues().get(i)).getTextContent());
-                }
-
-                if (!itemList.isEmpty()) {
-                    attributes.put(item.getAttributeName(), itemList);
-                }
+        assertion.getAttributeStatements().stream().flatMap(attributeStatement -> attributeStatement.getAttributes().stream()).forEach(item -> {
+            LOGGER.debug("Processed attribute: [{}]", item.getAttributeName());
+            final List<Object> itemList = IntStream.range(0, item.getAttributeValues().size())
+                    .mapToObj(i -> ((XSAny) item.getAttributeValues().get(i)).getTextContent())
+                    .collect(Collectors.toList());
+            if (!itemList.isEmpty()) {
+                attributes.put(item.getAttributeName(), itemList);
             }
-        }
+        });
 
         credential.setAttributes(attributes);
-        LOGGER.debug("Credential: {}", credential);
+        LOGGER.debug("Credential: [{}]", credential);
         return credential;
     }
 
-
     /**
-     * parseTokenFromString converts a raw wresult and extracts it into an assertion.
+     * Gets request security token response from result.
      *
-     * @param wresult the raw token returned by the IdP
-     * @param config  the config
-     * @return an assertion
+     * @param wresult the wresult
+     * @return the request security token response from result
      */
-    public Assertion parseTokenFromString(final String wresult, final WsFederationConfiguration config) {
-        LOGGER.debug("Result token received from ADFS is {}", wresult);
+    public RequestedSecurityToken getRequestSecurityTokenFromResult(final String wresult) {
+        LOGGER.debug("Result token received from ADFS is [{}]", wresult);
 
         try (InputStream in = new ByteArrayInputStream(wresult.getBytes(StandardCharsets.UTF_8))) {
 
@@ -161,10 +158,10 @@ public class WsFederationHelper {
             LOGGER.debug("Unmarshalling the document into a security token response");
             final RequestSecurityTokenResponse rsToken = (RequestSecurityTokenResponse) unmarshaller.unmarshall(metadataRoot);
 
-            if (rsToken == null || rsToken.getRequestedSecurityToken() == null) {
+            if (rsToken.getRequestedSecurityToken() == null) {
                 throw new IllegalArgumentException("Request security token response is null");
             }
-            //Get our SAML token
+
             LOGGER.debug("Locating list of requested security tokens");
             final List<RequestedSecurityToken> rst = rsToken.getRequestedSecurityToken();
 
@@ -178,81 +175,129 @@ public class WsFederationHelper {
                 throw new IllegalArgumentException("Requested security token response is not carrying any security tokens");
             }
 
-            Assertion assertion = null;
+            return reqToken;
+        } catch (final Exception ex) {
+            LOGGER.error(ex.getMessage(), ex);
+        }
+        return null;
+    }
 
-            LOGGER.debug("Locating the first occurrence of a security token from the requested security token");
-            XMLObject securityToken = reqToken.getSecurityTokens().get(0);
+    /**
+     * converts a token into an assertion.
+     *
+     * @param reqToken the req token
+     * @param config   the config
+     * @return an assertion
+     */
+    public Pair<Assertion, WsFederationConfiguration> buildAndVerifyAssertion(final RequestedSecurityToken reqToken,
+                                                                              final Collection<WsFederationConfiguration> config) {
 
-            if (securityToken instanceof EncryptedData) {
+        final XMLObject securityToken = getSecurityTokenFromRequestedToken(reqToken, config);
+
+        if (securityToken instanceof Assertion) {
+            LOGGER.debug("Security token is an assertion.");
+            final Assertion assertion = Assertion.class.cast(securityToken);
+            LOGGER.debug("Extracted assertion successfully: [{}]", assertion);
+
+            final WsFederationConfiguration cfg = config.stream()
+                    .filter(c -> c.getIdentityProviderIdentifier().equals(assertion.getIssuer()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (cfg == null) {
+                throw new IllegalArgumentException("Could not locate wsfed configuration for security token provided");
+            }
+
+            return Pair.of(assertion, cfg);
+        }
+
+        throw new IllegalArgumentException("Could not extract or decrypt an assertion based on the security token provided");
+
+    }
+
+    private XMLObject getSecurityTokenFromRequestedToken(final RequestedSecurityToken reqToken,
+                                                         final Collection<WsFederationConfiguration> config) {
+        LOGGER.debug("Locating the first occurrence of a security token from the requested security token");
+        XMLObject securityToken = getAssertionFromSecurityToken(reqToken);
+
+        if (securityToken instanceof EncryptedData) {
+            LOGGER.debug("Security token is encrypted. Attempting to decrypt to extract the assertion");
+            final EncryptedData encryptedData = EncryptedData.class.cast(securityToken);
+
+            final Iterator<WsFederationConfiguration> it = config.iterator();
+            boolean found = false;
+            while (!found && it.hasNext()) {
                 try {
-                    LOGGER.debug("Security token is encrypted. Attempting to decrypt to extract the assertion");
-                    final EncryptedData encryptedData = EncryptedData.class.cast(securityToken);
-                    final Decrypter decrypter = buildAssertionDecrypter(config);
-                    LOGGER.debug("Built an instance of {} to decrypt. Attempting to decrypt data next");
+                    final WsFederationConfiguration c = it.next();
+                    final Decrypter decrypter = buildAssertionDecrypter(c);
+                    LOGGER.debug("Built an instance of [{}]", decrypter.getClass().getName());
                     securityToken = decrypter.decryptData(encryptedData);
+
+                    LOGGER.debug("Decrypted assertion successfully");
+                    found = true;
                 } catch (final Exception e) {
-                    throw new IllegalArgumentException("Unable to decrypt security token", e);
+                    LOGGER.debug(e.getMessage(), e);
                 }
             }
-
-            if (securityToken instanceof Assertion) {
-                LOGGER.debug("Security token is an assertion.");
-                assertion = Assertion.class.cast(securityToken);
-            }
-            if (assertion == null) {
+            if (!found) {
                 throw new IllegalArgumentException("Could not extract or decrypt an assertion based on the security token provided");
             }
-            LOGGER.debug("Extracted assertion successfully: {}", assertion);
-            return assertion;
-        } catch (final Exception ex) {
-            LOGGER.warn(ex.getMessage());
-            return null;
         }
+        return securityToken;
+    }
+
+    /**
+     * Gets assertion from security token.
+     *
+     * @param reqToken the req token
+     * @return the assertion from security token
+     */
+    public XMLObject getAssertionFromSecurityToken(final RequestedSecurityToken reqToken) {
+        return reqToken.getSecurityTokens().get(0);
     }
 
     /**
      * validateSignature checks to see if the signature on an assertion is valid.
      *
-     * @param assertion                 a provided assertion
-     * @param wsFederationConfiguration WS-Fed configuration provided.
+     * @param assertion a provided assertion
      * @return true if the assertion's signature is valid, otherwise false
      */
-    public boolean validateSignature(final Assertion assertion,
-                                     final WsFederationConfiguration wsFederationConfiguration) {
+    public boolean validateSignature(final Pair<Assertion, WsFederationConfiguration> assertion) {
 
-        if (assertion == null) {
-            LOGGER.warn("No assertion was provided to validate signatures");
+        if (assertion == null || assertion.getKey() == null || assertion.getValue() == null) {
+            LOGGER.warn("No assertion or its configuration was provided to validate signatures");
             return false;
         }
 
         boolean valid = false;
-        if (assertion.getSignature() != null) {
+        final Signature signature = assertion.getKey().getSignature();
+        if (signature != null) {
             final SignaturePrevalidator validator = new SAMLSignatureProfileValidator();
             try {
-                validator.validate(assertion.getSignature());
+                validator.validate(signature);
 
                 final CriteriaSet criteriaSet = new CriteriaSet();
                 criteriaSet.add(new UsageCriterion(UsageType.SIGNING));
                 criteriaSet.add(new EntityRoleCriterion(IDPSSODescriptor.DEFAULT_ELEMENT_NAME));
                 criteriaSet.add(new ProtocolCriterion(SAMLConstants.SAML20P_NS));
-                criteriaSet.add(new EntityIdCriterion(wsFederationConfiguration.getIdentityProviderIdentifier()));
+                criteriaSet.add(new EntityIdCriterion(assertion.getValue().getIdentityProviderIdentifier()));
 
                 try {
-                    final SignatureTrustEngine engine = buildSignatureTrustEngine(wsFederationConfiguration);
-                    valid = engine.validate(assertion.getSignature(), criteriaSet);
+                    final SignatureTrustEngine engine = buildSignatureTrustEngine(assertion.getValue());
+                    valid = engine.validate(signature, criteriaSet);
                 } catch (final SecurityException e) {
                     LOGGER.warn(e.getMessage(), e);
                 } finally {
                     if (!valid) {
-                        LOGGER.warn("Signature doesn't match any signing credential.");
+                        LOGGER.error("Signature doesn't match any signing credential.");
                     }
                 }
 
             } catch (final SignatureException e) {
-                LOGGER.warn("Failed to validate assertion signature", e);
+                LOGGER.error("Failed to validate assertion signature", e);
             }
         }
-        SamlUtils.logSamlObject(this.configBean, assertion);
+        SamlUtils.logSamlObject(this.configBean, assertion.getKey());
         return valid;
     }
 
@@ -264,10 +309,11 @@ public class WsFederationHelper {
      */
     private static SignatureTrustEngine buildSignatureTrustEngine(final WsFederationConfiguration wsFederationConfiguration) {
         try {
+            final List<Credential> signingWallet = wsFederationConfiguration.getSigningWallet();
             final CredentialResolver resolver = new
-                    StaticCredentialResolver(wsFederationConfiguration.getSigningCertificates());
+                    StaticCredentialResolver(signingWallet);
             final KeyInfoCredentialResolver keyResolver =
-                    new StaticKeyInfoCredentialResolver(wsFederationConfiguration.getSigningCertificates());
+                    new StaticKeyInfoCredentialResolver(signingWallet);
 
             return new ExplicitKeySignatureTrustEngine(resolver, keyResolver);
         } catch (final Exception e) {
@@ -282,7 +328,7 @@ public class WsFederationHelper {
     private static Credential getEncryptionCredential(final WsFederationConfiguration config) {
         try {
             // This will need to contain the private keypair in PEM format
-            LOGGER.debug("Locating encryption credential private key {}", config.getEncryptionPrivateKey());
+            LOGGER.debug("Locating encryption credential private key [{}]", config.getEncryptionPrivateKey());
             final BufferedReader br = new BufferedReader(new InputStreamReader(
                     config.getEncryptionPrivateKey().getInputStream(), StandardCharsets.UTF_8));
             Security.addProvider(new BouncyCastleProvider());
@@ -290,7 +336,7 @@ public class WsFederationHelper {
             LOGGER.debug("Parsing credential private key");
             final PEMParser pemParser = new PEMParser(br);
             final Object privateKeyPemObject = pemParser.readObject();
-            
+
             final JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(new BouncyCastleProvider());
 
             final KeyPair kp;
@@ -309,12 +355,12 @@ public class WsFederationHelper {
 
             final X509CertParser certParser = new X509CertParser();
             // This is the certificate shared with ADFS in DER format, i.e certificate.crt
-            LOGGER.debug("Locating encryption certificate {}", config.getEncryptionCertificate());
+            LOGGER.debug("Locating encryption certificate [{}]", config.getEncryptionCertificate());
             certParser.engineInit(config.getEncryptionCertificate().getInputStream());
 
-            LOGGER.debug("Invoking certificate engine to parse the certificate {}", config.getEncryptionCertificate());
+            LOGGER.debug("Invoking certificate engine to parse the certificate [{}]", config.getEncryptionCertificate());
             final X509CertificateObject cert = (X509CertificateObject) certParser.engineRead();
-            LOGGER.debug("Creating final credential based on the certificate {} and the private key", cert.getIssuerDN());
+            LOGGER.debug("Creating final credential based on the certificate [{}] and the private key", cert.getIssuerDN());
             return new BasicX509Credential(cert, kp.getPrivate());
         } catch (final Exception e) {
             throw Throwables.propagate(e);
@@ -328,7 +374,7 @@ public class WsFederationHelper {
         list.add(new EncryptedElementTypeEncryptedKeyResolver());
         list.add(new SimpleRetrievalMethodEncryptedKeyResolver());
 
-        LOGGER.debug("Built a list of encrypted key resolvers: {}", list);
+        LOGGER.debug("Built a list of encrypted key resolvers: [{}]", list);
 
         final ChainingEncryptedKeyResolver encryptedKeyResolver = new ChainingEncryptedKeyResolver(list);
 
@@ -338,9 +384,5 @@ public class WsFederationHelper {
         final Decrypter decrypter = new Decrypter(null, resolver, encryptedKeyResolver);
         decrypter.setRootInNewDocument(true);
         return decrypter;
-    }
-
-    public OpenSamlConfigBean getConfigBean() {
-        return configBean;
     }
 }

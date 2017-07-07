@@ -1,6 +1,6 @@
 package org.apereo.cas.support.wsfederation;
 
-import com.google.common.collect.Lists;
+import org.apache.commons.lang3.StringUtils;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.x509.BasicX509Credential;
 import org.slf4j.Logger;
@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
 public class WsFederationConfiguration implements Serializable {
     private static final long serialVersionUID = 2310859477512242659L;
 
-    private final transient Logger logger = LoggerFactory.getLogger(this.getClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(WsFederationConfiguration.class);
 
     /**
      * Describes how the WS-FED principal resolution machinery
@@ -48,28 +49,40 @@ public class WsFederationConfiguration implements Serializable {
     }
 
     private Resource encryptionPrivateKey;
-    
+
     private Resource encryptionCertificate;
-    
+
     private String encryptionPrivateKeyPassword;
-    
+
     private String identityAttribute;
-    
+
     private String identityProviderIdentifier;
 
     private String identityProviderUrl;
-    
+
     private List<Resource> signingCertificateResources = new ArrayList<>();
-    
+
     private String relyingPartyIdentifier;
-    
+
     private long tolerance;
-    
+
+    private boolean autoRedirect;
+
     private WsFedPrincipalResolutionAttributesType attributesType;
-    
+
     private WsFederationAttributeMutator attributeMutator;
 
     private List<Credential> signingWallet;
+
+    private String name;
+
+    public String getName() {
+        return StringUtils.isBlank(this.name) ? getClass().getSimpleName() : this.name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
 
     @PostConstruct
     private void initCertificates() {
@@ -153,7 +166,10 @@ public class WsFederationConfiguration implements Serializable {
      *
      * @return X509credentials of the signing certs
      */
-    public List<Credential> getSigningCertificates() {
+    public List<Credential> getSigningWallet() {
+        if (this.signingWallet == null) {
+            createSigningWallet(this.signingCertificateResources);
+        }
         return this.signingWallet;
     }
 
@@ -172,12 +188,24 @@ public class WsFederationConfiguration implements Serializable {
      * @param signingCertificateResources a list of certificate files to read in.
      */
     public void setSigningCertificateResources(final Resource... signingCertificateResources) {
-        this.signingCertificateResources = Lists.newArrayList(signingCertificateResources);
+        this.signingCertificateResources = Arrays.asList(signingCertificateResources);
         createSigningWallet(this.signingCertificateResources);
     }
 
+    public void setSigningCertificateResources(final List<Resource> signingCertificateResources) {
+        this.signingCertificateResources = signingCertificateResources;
+    }
+
+    public boolean isAutoRedirect() {
+        return autoRedirect;
+    }
+
+    public void setAutoRedirect(final boolean autoRedirect) {
+        this.autoRedirect = autoRedirect;
+    }
+
     private void createSigningWallet(final List<Resource> signingCertificateFiles) {
-        this.signingWallet = signingCertificateFiles.stream().map(this::getSigningCredential).collect(Collectors.toList());
+        this.signingWallet = signingCertificateFiles.stream().map(WsFederationConfiguration::getSigningCredential).collect(Collectors.toList());
     }
 
     /**
@@ -223,10 +251,6 @@ public class WsFederationConfiguration implements Serializable {
     public void setAttributesType(final WsFedPrincipalResolutionAttributesType attributesType) {
         this.attributesType = attributesType;
     }
-    
-    public void setSigningCertificateResources(final List<Resource> signingCertificateResources) {
-        this.signingCertificateResources = signingCertificateResources;
-    }
 
     public Resource getEncryptionPrivateKey() {
         return encryptionPrivateKey;
@@ -258,16 +282,16 @@ public class WsFederationConfiguration implements Serializable {
      * @param resource the signing certificate file
      * @return an X509 credential
      */
-    private Credential getSigningCredential(final Resource resource) {
-        try(InputStream inputStream = resource.getInputStream()) {
+    private static Credential getSigningCredential(final Resource resource) {
+        try (InputStream inputStream = resource.getInputStream()) {
             final CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
             final X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
             final Credential publicCredential = new BasicX509Credential(certificate);
-            logger.debug("getSigningCredential: key retrieved.");
+            LOGGER.debug("Signing credential key retrieved from [{}].", resource);
             return publicCredential;
         } catch (final Exception ex) {
-            logger.error(ex.getMessage(), ex);
-            return null;
+            LOGGER.error(ex.getMessage(), ex);
         }
+        return null;
     }
 }

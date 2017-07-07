@@ -2,12 +2,10 @@ package org.apereo.cas.pm.web.flow;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.authentication.UsernamePasswordCredential;
-import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.pm.PasswordManagementService;
 import org.apereo.cas.web.support.WebUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.webflow.action.AbstractAction;
 import org.springframework.webflow.execution.Event;
 import org.springframework.webflow.execution.RequestContext;
@@ -21,10 +19,7 @@ import org.springframework.webflow.execution.RequestContext;
 public class InitPasswordResetAction extends AbstractAction {
     private static final Logger LOGGER = LoggerFactory.getLogger(InitPasswordResetAction.class);
     
-    @Autowired
-    private CasConfigurationProperties casProperties;
-
-    private PasswordManagementService passwordManagementService;
+    private final PasswordManagementService passwordManagementService;
 
     public InitPasswordResetAction(final PasswordManagementService passwordManagementService) {
         this.passwordManagementService = passwordManagementService;

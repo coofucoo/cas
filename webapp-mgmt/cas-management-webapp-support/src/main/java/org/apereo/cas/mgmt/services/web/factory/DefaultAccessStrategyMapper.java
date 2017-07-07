@@ -1,16 +1,16 @@
 package org.apereo.cas.mgmt.services.web.factory;
 
 import com.google.common.base.Throwables;
-import edu.internet2.middleware.grouperClientExt.org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.grouper.GrouperGroupField;
 import org.apereo.cas.grouper.services.GrouperRegisteredServiceAccessStrategy;
 import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceEditBean;
 import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceSupportAccessEditBean;
+import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceViewBean;
 import org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy;
 import org.apereo.cas.services.RegisteredServiceAccessStrategy;
 import org.apereo.cas.services.RemoteEndpointServiceAccessStrategy;
 import org.apereo.cas.services.TimeBasedRegisteredServiceAccessStrategy;
-import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceViewBean;
 
 import java.net.URI;
 import java.util.Iterator;
@@ -41,9 +41,9 @@ public class DefaultAccessStrategyMapper implements AccessStrategyMapper {
             accessBean.setRequiredAttr(def.getRequiredAttributes());
 
             def.getRejectedAttributes().forEach(
-                    (k, v) -> accessBean.getRejectedAttr().add(new RegisteredServiceEditBean.ServiceData.PropertyBean(
-                            k, org.springframework.util.StringUtils.collectionToCommaDelimitedString(v)
-                    )));
+                (k, v) -> accessBean.getRejectedAttr().add(new RegisteredServiceEditBean.ServiceData.PropertyBean(
+                        k, org.springframework.util.StringUtils.collectionToCommaDelimitedString(v)
+                )));
 
             accessBean.setCaseSensitive(def.isCaseInsensitive());
             accessBean.setType(RegisteredServiceSupportAccessEditBean.Types.DEFAULT);
@@ -82,14 +82,19 @@ public class DefaultAccessStrategyMapper implements AccessStrategyMapper {
         final RegisteredServiceSupportAccessEditBean supportAccess = bean.getSupportAccess();
 
         final DefaultRegisteredServiceAccessStrategy accessStrategy;
-        if (supportAccess.getType() == RegisteredServiceSupportAccessEditBean.Types.REMOTE) {
-            accessStrategy = new RemoteEndpointServiceAccessStrategy();
-        } else if (supportAccess.getType() == RegisteredServiceSupportAccessEditBean.Types.GROUPER) {
-            accessStrategy = new GrouperRegisteredServiceAccessStrategy();
-        } else if (supportAccess.getType() == RegisteredServiceSupportAccessEditBean.Types.TIME) {
-            accessStrategy = new TimeBasedRegisteredServiceAccessStrategy();
-        } else {
-            accessStrategy = new DefaultRegisteredServiceAccessStrategy();
+        switch (supportAccess.getType()) {
+            case REMOTE:
+                accessStrategy = new RemoteEndpointServiceAccessStrategy();
+                break;
+            case GROUPER:
+                accessStrategy = new GrouperRegisteredServiceAccessStrategy();
+                break;
+            case TIME:
+                accessStrategy = new TimeBasedRegisteredServiceAccessStrategy();
+                break;
+            default:
+                accessStrategy = new DefaultRegisteredServiceAccessStrategy();
+                break;
         }
 
         accessStrategy.setEnabled(supportAccess.isCasEnabled());

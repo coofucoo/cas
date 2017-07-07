@@ -16,7 +16,7 @@ import java.util.Map;
  * of attributes.
  * </p>
  * <p>
- * An Authentication object must be serializable to permit persistance and
+ * An Authentication object must be serializable to permit persistence and
  * clustering.
  * </p>
  * <p>
@@ -29,7 +29,7 @@ import java.util.Map;
  * @author Marvin S. Addison
  * @since 3.0.0
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS, include = JsonTypeInfo.As.PROPERTY)
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY)
 public interface Authentication extends Serializable {
 
     /**
@@ -81,6 +81,7 @@ public interface Authentication extends Serializable {
     /**
      * Updates the authentication object with what's passed.
      * Does not override current keys if there are clashes
+     *
      * @param authn the authn object
      */
     void update(Authentication authn);
@@ -89,6 +90,7 @@ public interface Authentication extends Serializable {
      * Updates the authentication object with what's passed.
      * Does override current keys if there are clashes.
      * Clears the existing attributes and starts over.
+     *
      * @param authn the authn object
      */
     void updateAll(Authentication authn);

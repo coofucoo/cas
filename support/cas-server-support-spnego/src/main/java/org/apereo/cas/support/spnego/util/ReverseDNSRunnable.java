@@ -21,7 +21,7 @@ public class ReverseDNSRunnable implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReverseDNSRunnable.class);
 
     /** Remote user IP address. **/
-    private String ipAddress;
+    private final String ipAddress;
 
     /** Remote user hostname. **/
     private String hostName;
@@ -42,11 +42,11 @@ public class ReverseDNSRunnable implements Runnable {
     @Override
     public void run() {
         try {
-            LOGGER.debug("Attempting to resolve {}", this.ipAddress);
+            LOGGER.debug("Attempting to resolve [{}]", this.ipAddress);
             final InetAddress address = InetAddress.getByName(this.ipAddress);
             set(address.getCanonicalHostName());
         } catch (final UnknownHostException e) {
-            /** N/A -- Default to IP address, but that's already done. **/
+            /* N/A -- Default to IP address, but that's already done. **/
             LOGGER.debug("Unable to identify the canonical hostname for ip address.", e);
         }
     }
@@ -56,7 +56,7 @@ public class ReverseDNSRunnable implements Runnable {
      * @param hostName the resolved hostname
      */
     public synchronized void set(final String hostName) {
-        LOGGER.trace("ReverseDNS -- Found hostName: {}.", hostName);
+        LOGGER.trace("ReverseDNS -- Found hostName: [{}].", hostName);
         this.hostName = hostName;
     }
 

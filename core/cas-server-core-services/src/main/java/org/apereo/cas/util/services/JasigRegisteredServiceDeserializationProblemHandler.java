@@ -7,7 +7,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.type.SimpleType;
-import org.apache.shiro.util.ClassUtils;
+import com.google.common.base.Throwables;
+import org.apache.commons.lang3.ClassUtils;
 import org.apereo.cas.authentication.principal.cache.CachingPrincipalAttributesRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,22 +25,29 @@ import java.io.IOException;
  */
 public class JasigRegisteredServiceDeserializationProblemHandler extends DeserializationProblemHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(JasigRegisteredServiceDeserializationProblemHandler.class);
+    private static final int TOKEN_COUNT_DURATION = 6;
+    private static final int TOKEN_COUNT_EXPIRATION = 3;
 
     @Override
-    public JavaType handleUnknownTypeId(final DeserializationContext ctxt, final JavaType baseType,
+    public JavaType handleUnknownTypeId(final DeserializationContext ctxt,
+                                        final JavaType baseType,
                                         final String subTypeId, final TypeIdResolver idResolver,
                                         final String failureMsg) throws IOException {
 
-        if (subTypeId.contains("org.jasig.")) {
-            final String newTypeName = subTypeId.replaceAll("jasig", "apereo");
-            LOGGER.warn("Found legacy CAS JSON definition type identified as [{}]. "
-                            + "While CAS will attempt to convert the legacy definition to [{}] for the time being, "
-                            + "the definition SHOULD manually be upgraded to the new supported syntax",
-                    subTypeId, newTypeName);
-            final Class newType = ClassUtils.forName(newTypeName);
-            return SimpleType.construct(newType);
+        try {
+            if (subTypeId.contains("org.jasig.")) {
+                final String newTypeName = subTypeId.replaceAll("jasig", "apereo");
+                LOGGER.warn("Found legacy CAS JSON definition type identified as [{}]. "
+                                + "While CAS will attempt to convert the legacy definition to [{}] for the time being, "
+                                + "the definition SHOULD manually be upgraded to the new supported syntax",
+                        subTypeId, newTypeName);
+                final Class newType = ClassUtils.getClass(newTypeName);
+                return SimpleType.construct(newType);
+            }
+            return null;
+        } catch (final Exception e) {
+            throw Throwables.propagate(e);
         }
-        return null;
     }
 
     @Override
@@ -52,26 +60,25 @@ public class JasigRegisteredServiceDeserializationProblemHandler extends Deseria
             final CachingPrincipalAttributesRepository repo = CachingPrincipalAttributesRepository.class.cast(beanOrClass);
             switch (propertyName) {
                 case "duration":
-                    p.nextToken();
-                    p.nextToken();
-                    p.nextToken();
-                    p.nextToken();
-                    p.nextToken();
-                    p.nextToken();
+                    for (int i = 1; i <= TOKEN_COUNT_DURATION; i++) {
+                        p.nextToken();
+                    }
                     final String timeUnit = p.getText();
-                    p.nextToken();
-                    p.nextToken();
-                    p.nextToken();
+                    for (int i = 1; i <= TOKEN_COUNT_EXPIRATION; i++) {
+                        p.nextToken();
+                    }
                     final int expiration = p.getValueAsInt();
 
                     repo.setTimeUnit(timeUnit);
                     repo.setExpiration(expiration);
 
                     LOGGER.warn("CAS has converted legacy JSON property [{}] for type [{}]. It parsed 'expiration' value [{}] with time unit of [{}]."
-                            + "It is STRONGLY recommended that you review the configuration and upgrade the legacy syntax.",
+                                    + "It is STRONGLY recommended that you review the configuration and upgrade from the legacy syntax.",
                             propertyName, beanOrClass.getClass().getName(), expiration, timeUnit);
 
                     handled = true;
+                    break;
+                default:
                     break;
             }
         }

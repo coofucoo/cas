@@ -24,12 +24,18 @@ public abstract class AbstractRegisteredServiceAttributeReleasePolicyStrategyBea
         MAPPED("mapped"),
 
         /** None type. */
+        SCRIPT("script"),
+
+        /** None type. */
+        GROOVY("groovy"),
+
+        /** None type. */
         NONE("none"),
 
         /** Allow type. */
         ALLOWED("allowed");
 
-        private String value;
+        private final String value;
 
         /**
          * Instantiates a new AlgorithmTypes.

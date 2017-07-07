@@ -2,12 +2,10 @@ package org.apereo.cas.web.flow;
 
 import com.google.common.base.Throwables;
 import org.apereo.cas.CentralAuthenticationService;
+import org.apereo.cas.configuration.model.core.logout.LogoutProperties;
 import org.apereo.cas.logout.LogoutRequest;
 import org.apereo.cas.web.support.CookieRetrievingCookieGenerator;
 import org.apereo.cas.web.support.WebUtils;
-import org.pac4j.core.config.Config;
-import org.pac4j.core.context.J2EContext;
-import org.pac4j.core.context.WebContext;
 import org.pac4j.core.profile.ProfileManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,27 +26,35 @@ import java.util.List;
  * @since 4.0.0
  */
 public class TerminateSessionAction extends AbstractAction {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(TerminateSessionAction.class);
 
     private final EventFactorySupport eventFactorySupport = new EventFactorySupport();
+    private final CentralAuthenticationService centralAuthenticationService;
+    private final CookieRetrievingCookieGenerator ticketGrantingTicketCookieGenerator;
+    private final CookieRetrievingCookieGenerator warnCookieGenerator;
+    private final LogoutProperties logoutProperties;
 
-    private CentralAuthenticationService centralAuthenticationService;
-
-    private CookieRetrievingCookieGenerator ticketGrantingTicketCookieGenerator;
-
-    private CookieRetrievingCookieGenerator warnCookieGenerator;
-
-     private Config pac4jSecurityConfig;
-
-    /**
-     * Creates a new instance with the given parameters.
-     */
-    public TerminateSessionAction() {
+    public TerminateSessionAction(final CentralAuthenticationService centralAuthenticationService,
+                                  final CookieRetrievingCookieGenerator tgtCookieGenerator,
+                                  final CookieRetrievingCookieGenerator warnCookieGenerator,
+                                  final LogoutProperties logoutProperties) {
+        this.centralAuthenticationService = centralAuthenticationService;
+        this.ticketGrantingTicketCookieGenerator = tgtCookieGenerator;
+        this.warnCookieGenerator = warnCookieGenerator;
+        this.logoutProperties = logoutProperties;
     }
 
     @Override
     public Event doExecute(final RequestContext requestContext) throws Exception {
-        return terminate(requestContext);
+        boolean terminateSession = true;
+        if (logoutProperties.isConfirmLogout()) {
+            terminateSession = isLogoutRequestConfirmed(requestContext);
+        }
+        if (terminateSession) {
+            return terminate(requestContext);
+        }
+        return this.eventFactorySupport.event(this, CasWebflowConstants.STATE_ID_WARN);
     }
 
     /**
@@ -69,7 +75,7 @@ public class TerminateSessionAction extends AbstractAction {
                 tgtId = this.ticketGrantingTicketCookieGenerator.retrieveCookieValue(request);
             }
             if (tgtId != null) {
-                LOGGER.debug("Destroying SSO session linked to ticket-granting ticket {}", tgtId);
+                LOGGER.debug("Destroying SSO session linked to ticket-granting ticket [{}]", tgtId);
                 final List<LogoutRequest> logoutRequests = this.centralAuthenticationService.destroyTicketGrantingTicket(tgtId);
                 WebUtils.putLogoutRequests(context, logoutRequests);
             }
@@ -94,9 +100,7 @@ public class TerminateSessionAction extends AbstractAction {
      */
     protected void destroyApplicationSession(final HttpServletRequest request, final HttpServletResponse response) {
         LOGGER.debug("Destroying application session");
-
-        final WebContext context = new J2EContext(request, response, pac4jSecurityConfig.getSessionStore());
-        final ProfileManager manager = new ProfileManager(context);
+        final ProfileManager manager = WebUtils.getPac4jProfileManager(request, response);
         manager.logout();
 
         final HttpSession session = request.getSession();
@@ -105,19 +109,8 @@ public class TerminateSessionAction extends AbstractAction {
         }
     }
 
-    public void setCentralAuthenticationService(final CentralAuthenticationService centralAuthenticationService) {
-        this.centralAuthenticationService = centralAuthenticationService;
-    }
-
-    public void setTicketGrantingTicketCookieGenerator(final CookieRetrievingCookieGenerator ticketGrantingTicketCookieGenerator) {
-        this.ticketGrantingTicketCookieGenerator = ticketGrantingTicketCookieGenerator;
-    }
-
-    public void setWarnCookieGenerator(final CookieRetrievingCookieGenerator warnCookieGenerator) {
-        this.warnCookieGenerator = warnCookieGenerator;
-    }
-
-    public void setPac4jSecurityConfig(final Config pac4jSecurityConfig) {
-        this.pac4jSecurityConfig = pac4jSecurityConfig;
+    private static boolean isLogoutRequestConfirmed(final RequestContext requestContext) {
+        final HttpServletRequest request = WebUtils.getHttpServletRequest(requestContext);
+        return request.getParameterMap().containsKey("LogoutRequestConfirmed");
     }
 }

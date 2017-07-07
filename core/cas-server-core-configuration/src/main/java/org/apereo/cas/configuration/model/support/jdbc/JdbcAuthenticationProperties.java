@@ -1,5 +1,6 @@
 package org.apereo.cas.configuration.model.support.jdbc;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.configuration.model.core.authentication.PasswordEncoderProperties;
 import org.apereo.cas.configuration.model.core.authentication.PrincipalTransformationProperties;
 import org.apereo.cas.configuration.model.support.jpa.AbstractJpaProperties;
@@ -53,8 +54,13 @@ public class JdbcAuthenticationProperties {
     }
 
     public static class Query extends AbstractJpaProperties {
+        private static final long serialVersionUID = 7806132208223986680L;
         private String sql;
         private String credentialCriteria;
+        private String fieldPassword;
+        private String fieldExpired;
+        private String fieldDisabled;
+        private List principalAttributeList = new ArrayList();
 
         @NestedConfigurationProperty
         private PrincipalTransformationProperties principalTransformation =
@@ -64,6 +70,24 @@ public class JdbcAuthenticationProperties {
         private PasswordEncoderProperties passwordEncoder = new PasswordEncoderProperties();
 
         private String name;
+
+        private int order = Integer.MAX_VALUE;
+
+        public List getPrincipalAttributeList() {
+            return principalAttributeList;
+        }
+
+        public void setPrincipalAttributeList(final List principalAttributeList) {
+            this.principalAttributeList = principalAttributeList;
+        }
+
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
 
         public String getName() {
             return name;
@@ -86,7 +110,7 @@ public class JdbcAuthenticationProperties {
         }
 
         public void setSql(final String sql) {
-            this.sql = sql;
+            this.sql = StringUtils.replace(sql, "{user}", "?");
         }
 
         public PrincipalTransformationProperties getPrincipalTransformation() {
@@ -104,19 +128,52 @@ public class JdbcAuthenticationProperties {
         public void setCredentialCriteria(final String credentialCriteria) {
             this.credentialCriteria = credentialCriteria;
         }
+
+        public String getFieldPassword() {
+            return fieldPassword;
+        }
+
+        public void setFieldPassword(final String fieldPassword) {
+            this.fieldPassword = fieldPassword;
+        }
+
+        public String getFieldExpired() {
+            return fieldExpired;
+        }
+
+        public void setFieldExpired(final String fieldExpired) {
+            this.fieldExpired = fieldExpired;
+        }
+
+        public String getFieldDisabled() {
+            return fieldDisabled;
+        }
+
+        public void setFieldDisabled(final String fieldDisabled) {
+            this.fieldDisabled = fieldDisabled;
+        }
     }
 
     public static class Bind extends AbstractJpaProperties {
+        private static final long serialVersionUID = 4268982716707687796L;
         private String credentialCriteria;
 
         @NestedConfigurationProperty
         private PasswordEncoderProperties passwordEncoder = new PasswordEncoderProperties();
 
         @NestedConfigurationProperty
-        private PrincipalTransformationProperties principalTransformation =
-                new PrincipalTransformationProperties();
+        private PrincipalTransformationProperties principalTransformation = new PrincipalTransformationProperties();
 
         private String name;
+        private Integer order;
+
+        public Integer getOrder() {
+            return order;
+        }
+
+        public void setOrder(final Integer order) {
+            this.order = order;
+        }
 
         public String getName() {
             return name;
@@ -152,6 +209,7 @@ public class JdbcAuthenticationProperties {
     }
 
     public static class Search extends AbstractJpaProperties {
+        private static final long serialVersionUID = 6912107600297453730L;
         private String fieldUser;
         private String fieldPassword;
         private String tableUsers;
@@ -165,6 +223,16 @@ public class JdbcAuthenticationProperties {
         private PasswordEncoderProperties passwordEncoder = new PasswordEncoderProperties();
 
         private String name;
+
+        private int order = Integer.MAX_VALUE;
+
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
 
         public String getName() {
             return name;
@@ -224,11 +292,14 @@ public class JdbcAuthenticationProperties {
     }
 
     public static class Encode extends AbstractJpaProperties {
+        private static final long serialVersionUID = -6647373426301411768L;
         private String credentialCriteria;
         private String algorithmName;
         private String sql;
         private String passwordFieldName = "password";
         private String saltFieldName = "salt";
+        private String expiredFieldName;
+        private String disabledFieldName;
         private String numberOfIterationsFieldName = "numIterations";
         private long numberOfIterations;
         private String staticSalt;
@@ -240,6 +311,16 @@ public class JdbcAuthenticationProperties {
 
         @NestedConfigurationProperty
         private PasswordEncoderProperties passwordEncoder = new PasswordEncoderProperties();
+
+        private int order = Integer.MAX_VALUE;
+
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
 
         public String getName() {
             return name;
@@ -287,6 +368,22 @@ public class JdbcAuthenticationProperties {
 
         public void setSaltFieldName(final String saltFieldName) {
             this.saltFieldName = saltFieldName;
+        }
+
+        public String getExpiredFieldName() {
+            return expiredFieldName;
+        }
+
+        public void setExpiredFieldName(final String expiredFieldName) {
+            this.expiredFieldName = expiredFieldName;
+        }
+
+        public String getDisabledFieldName() {
+            return disabledFieldName;
+        }
+
+        public void setDisabledFieldName(final String disabledFieldName) {
+            this.disabledFieldName = disabledFieldName;
         }
 
         public String getNumberOfIterationsFieldName() {

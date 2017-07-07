@@ -9,10 +9,18 @@ import org.apereo.cas.configuration.support.Beans;
  * @since 5.0.0
  */
 public class OAuthProperties {
-
+    private Grants grants = new Grants();
     private Code code = new Code();
     private AccessToken accessToken = new AccessToken();
     private RefreshToken refreshToken = new RefreshToken();
+
+    public Grants getGrants() {
+        return grants;
+    }
+
+    public void setGrants(final Grants grants) {
+        this.grants = grants;
+    }
 
     public AccessToken getAccessToken() {
         return accessToken;
@@ -62,6 +70,15 @@ public class OAuthProperties {
     public static class AccessToken {
         private String maxTimeToLiveInSeconds = "PT28800S";
         private String timeToKillInSeconds = "PT7200S";
+        private boolean releaseProtocolAttributes = true;
+
+        public boolean isReleaseProtocolAttributes() {
+            return releaseProtocolAttributes;
+        }
+
+        public void setReleaseProtocolAttributes(final boolean releaseProtocolAttributes) {
+            this.releaseProtocolAttributes = releaseProtocolAttributes;
+        }
 
         public long getMaxTimeToLiveInSeconds() {
             return Beans.newDuration(maxTimeToLiveInSeconds).getSeconds();
@@ -89,6 +106,30 @@ public class OAuthProperties {
 
         public void setTimeToKillInSeconds(final String timeToKillInSeconds) {
             this.timeToKillInSeconds = timeToKillInSeconds;
+        }
+    }
+    
+    public static class Grants {
+        private ResourceOwner resourceOwner = new ResourceOwner();
+
+        public ResourceOwner getResourceOwner() {
+            return resourceOwner;
+        }
+
+        public void setResourceOwner(final ResourceOwner resourceOwner) {
+            this.resourceOwner = resourceOwner;
+        }
+
+        public static class ResourceOwner {
+            private boolean requireServiceHeader;
+
+            public boolean isRequireServiceHeader() {
+                return requireServiceHeader;
+            }
+
+            public void setRequireServiceHeader(final boolean requireServiceHeader) {
+                this.requireServiceHeader = requireServiceHeader;
+            }
         }
     }
 }

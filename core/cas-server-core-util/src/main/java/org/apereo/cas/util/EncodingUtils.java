@@ -1,6 +1,11 @@
 package org.apereo.cas.util;
 
 import com.google.common.base.Throwables;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
+import org.jose4j.jwk.JsonWebKey;
+import org.jose4j.jwk.OctJwkGenerator;
+import org.jose4j.jwk.OctetSequenceJsonWebKey;
 import org.jose4j.jws.AlgorithmIdentifiers;
 import org.jose4j.jws.JsonWebSignature;
 import org.slf4j.Logger;
@@ -12,8 +17,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Base64;
-import java.util.Formatter;
-import java.util.stream.IntStream;
+import java.util.Map;
 
 /**
  * This is {@link EncodingUtils}
@@ -24,22 +28,73 @@ import java.util.stream.IntStream;
  * @since 5.0.0
  */
 public final class EncodingUtils {
+
+    /**
+     * JSON web key parameter that identifies the key..
+     */
+    public static final String JSON_WEB_KEY = "k";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(EncodingUtils.class);
 
     private EncodingUtils() {
     }
 
     /**
-     * Hex encode the given byte[] as a string.
+     * Hex decode string.
      *
-     * @param data the byte array to encode
-     * @return the encoded string
+     * @param data the data
+     * @return the string
+     */
+    public static String hexDecode(final String data) {
+        if (StringUtils.isNotBlank(data)) {
+            return hexDecode(data.toCharArray());
+        }
+        return null;
+    }
+
+    /**
+     * Hex decode string.
+     *
+     * @param data the data
+     * @return the string
+     */
+    public static String hexDecode(final char[] data) {
+        try {
+            final byte[] result = Hex.decodeHex(data);
+            return new String(result);
+        } catch (final Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Hex encode string.
+     *
+     * @param data the data
+     * @return the string
+     */
+    public static String hexEncode(final String data) {
+        try {
+            final char[] result = Hex.encodeHex(data.getBytes(StandardCharsets.UTF_8));
+            return new String(result);
+        } catch (final Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Hex encode string.
+     *
+     * @param data the data
+     * @return the string
      */
     public static String hexEncode(final byte[] data) {
-        final StringBuilder sb = new StringBuilder();
-        final Formatter f = new Formatter(sb);
-        IntStream.range(0, data.length).forEach(i -> f.format("%02x", data[i]));
-        return sb.toString();
+        try {
+            final char[] result = Hex.encodeHex(data);
+            return new String(result);
+        } catch (final Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -140,7 +195,7 @@ public final class EncodingUtils {
             final boolean verified = jws.verifySignature();
             if (verified) {
                 final String payload = jws.getPayload();
-                LOGGER.debug("Successfully decoded value. Result in Base64-encoding is [{}]", payload);
+                LOGGER.trace("Successfully decoded value. Result in Base64-encoding is [{}]", payload);
                 return EncodingUtils.decodeBase64(payload);
             }
             return null;
@@ -149,6 +204,18 @@ public final class EncodingUtils {
         }
     }
 
+
+    /**
+     * Generate octet json web key of given size .
+     *
+     * @param size the size
+     * @return the key
+     */
+    public static String generateJsonWebKey(final int size) {
+        final OctetSequenceJsonWebKey octetKey = OctJwkGenerator.generateJwk(size);
+        final Map<String, Object> params = octetKey.toParams(JsonWebKey.OutputControlLevel.INCLUDE_SYMMETRIC);
+        return params.get(JSON_WEB_KEY).toString();
+    }
 
     /**
      * Sign jws.

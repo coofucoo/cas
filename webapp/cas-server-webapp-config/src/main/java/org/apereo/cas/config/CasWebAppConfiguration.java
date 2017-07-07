@@ -9,13 +9,10 @@ import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.servlet.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
-import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 import org.springframework.web.servlet.mvc.Controller;
 import org.springframework.web.servlet.mvc.ParameterizableViewController;
 import org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter;
@@ -37,16 +34,10 @@ import java.util.Map;
 @Configuration("casWebAppConfiguration")
 @EnableConfigurationProperties(CasConfigurationProperties.class)
 public class CasWebAppConfiguration extends WebMvcConfigurerAdapter {
-    
+
     @Autowired
     private CasConfigurationProperties casProperties;
-
-    @Lazy
-    @Bean
-    public LocalValidatorFactoryBean credentialsValidator() {
-        return new LocalValidatorFactoryBean();
-    }
-
+    
     @RefreshScope
     @Bean
     public ThemeChangeInterceptor themeChangeInterceptor() {
@@ -68,14 +59,6 @@ public class CasWebAppConfiguration extends WebMvcConfigurerAdapter {
                 return new Locale(casProperties.getLocale().getDefaultValue());
             }
         };
-        return bean;
-    }
-
-    @RefreshScope
-    @Bean
-    public LocaleChangeInterceptor localeChangeInterceptor() {
-        final LocaleChangeInterceptor bean = new LocaleChangeInterceptor();
-        bean.setParamName(this.casProperties.getLocale().getParamName());
         return bean;
     }
 
@@ -118,14 +101,14 @@ public class CasWebAppConfiguration extends WebMvcConfigurerAdapter {
     @Bean
     public SimpleUrlHandlerMapping handlerMapping() {
         final SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
-        
+
         final Controller root = rootController();
         mapping.setOrder(1);
         mapping.setAlwaysUseFullPath(true);
         mapping.setRootHandler(root);
         final Map urls = new HashMap();
         urls.put("/", root);
-        
+
         mapping.setUrlMap(urls);
         return mapping;
     }

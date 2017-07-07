@@ -1,6 +1,5 @@
 package org.apereo.cas;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apereo.cas.authentication.MessageDescriptor;
 import org.springframework.util.Assert;
@@ -20,11 +19,11 @@ public class DefaultMessageDescriptor implements MessageDescriptor {
     /** Serialization support. */
     private static final long serialVersionUID = 1227390629186486032L;
 
-    private String code;
+    private final String code;
 
-    private String defaultMessage;
+    private final String defaultMessage;
 
-    private Serializable[] params;
+    private final Serializable[] params;
 
     /**
      * Instantiates a new message.
@@ -70,7 +69,7 @@ public class DefaultMessageDescriptor implements MessageDescriptor {
         if (this.params == null) {
             return null;
         }
-        return ImmutableList.copyOf(this.params).toArray(new Serializable[this.params.length]);
+        return Arrays.copyOf(this.params, this.params.length);
     }
 
     @Override
@@ -84,7 +83,7 @@ public class DefaultMessageDescriptor implements MessageDescriptor {
 
     @Override
     public boolean equals(final Object other) {
-        if (other == null || !(other instanceof DefaultMessageDescriptor)) {
+        if (!(other instanceof DefaultMessageDescriptor)) {
             return false;
         }
         if (other == this) {

@@ -4,6 +4,9 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 import com.hazelcast.monitor.LocalMapStats;
+import org.apereo.cas.configuration.model.support.hazelcast.HazelcastProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,16 +18,24 @@ import java.util.List;
  * @since 5.0.0
  */
 public class HazelcastMonitor extends AbstractCacheMonitor {
-    
+    private static final Logger LOGGER = LoggerFactory.getLogger(HazelcastMonitor.class);
+
+    public HazelcastMonitor() {
+        super(HazelcastMonitor.class.getSimpleName());
+    }
+
     @Override
     protected CacheStatistics[] getStatistics() {
         final List<CacheStatistics> statsList = new ArrayList<>();
+        final HazelcastProperties hz = casProperties.getTicket().getRegistry().getHazelcast();
+        LOGGER.debug("Locating hazelcast instance [{}]...", hz.getCluster().getInstanceName());
+        final HazelcastInstance instance = Hazelcast.getHazelcastInstanceByName(hz.getCluster().getInstanceName());
 
-        final HazelcastInstance instance = Hazelcast.getHazelcastInstanceByName(
-                casProperties.getTicket().getRegistry().getHazelcast().getCluster().getInstanceName());
-        final IMap map = instance.getMap(casProperties.getTicket().getRegistry().getHazelcast().getMapName());
-        statsList.add(new HazelcastStatistics(map));
-
+        instance.getConfig().getMapConfigs().keySet().forEach(key -> {
+            final IMap map = instance.getMap(key);
+            LOGGER.debug("Starting to collect hazelcast statistics for map [{}] identified by key [{}]...", map, key);
+            statsList.add(new HazelcastStatistics(map, hz.getCluster().getMembers().size()));
+        });
         return statsList.toArray(new CacheStatistics[statsList.size()]);
     }
 
@@ -34,10 +45,12 @@ public class HazelcastMonitor extends AbstractCacheMonitor {
     public static class HazelcastStatistics implements CacheStatistics {
         private static final int PERCENTAGE_VALUE = 100;
 
-        private IMap map;
+        private final IMap map;
+        private final int clusterSize;
 
-        protected HazelcastStatistics(final IMap map) {
+        protected HazelcastStatistics(final IMap map, final int clusterSize) {
             this.map = map;
+            this.clusterSize = clusterSize;
         }
 
         @Override
@@ -47,12 +60,15 @@ public class HazelcastMonitor extends AbstractCacheMonitor {
 
         @Override
         public long getCapacity() {
-            return this.map.getLocalMapStats().total();
+            return this.map.getLocalMapStats() != null ? this.map.getLocalMapStats().total() : 0;
         }
 
         @Override
         public long getEvictions() {
-            return this.map.getLocalMapStats().getNearCacheStats().getMisses();
+            if (this.map.getLocalMapStats() != null && this.map.getLocalMapStats().getNearCacheStats() != null) {
+                return this.map.getLocalMapStats().getNearCacheStats().getMisses();
+            }
+            return 0;
         }
 
         @Override
@@ -75,45 +91,57 @@ public class HazelcastMonitor extends AbstractCacheMonitor {
 
             builder.append("Creation time: ")
                     .append(localMapStats.getCreationTime())
-                    .append(',')
+                    .append(", ")
+                    .append("Cluster size: ")
+                    .append(clusterSize)
+                    .append(", ")
                     .append("Owned entry count: ")
                     .append(localMapStats.getOwnedEntryCount())
-                    .append(',')
+                    .append(", ")
                     .append("Backup entry count: ")
                     .append(localMapStats.getBackupEntryCount())
-                    .append(',')
+                    .append(", ")
                     .append("Backup count: ")
                     .append(localMapStats.getBackupCount())
-                    .append(',')
+                    .append(", ")
                     .append("Hits count: ")
                     .append(localMapStats.getHits())
-                    .append(',')
+                    .append(", ")
                     .append("Last update time: ")
                     .append(localMapStats.getLastUpdateTime())
-                    .append(',')
+                    .append(", ")
                     .append("Last access time: ")
                     .append(localMapStats.getLastAccessTime())
-                    .append(',')
+                    .append(", ")
                     .append("Locked entry count: ")
                     .append(localMapStats.getLockedEntryCount())
-                    .append(',')
+                    .append(", ")
                     .append("Dirty entry count: ")
                     .append(localMapStats.getDirtyEntryCount())
-                    .append(',')
+                    .append(", ")
                     .append("Total get latency: ")
                     .append(localMapStats.getMaxGetLatency())
-                    .append(',')
+                    .append(", ")
                     .append("Total put latency: ")
                     .append(localMapStats.getTotalPutLatency())
-                    .append(',')
+                    .append(", ")
                     .append("Total remove latency: ")
                     .append(localMapStats.getTotalRemoveLatency())
-                    .append(',')
+                    .append(", ")
                     .append("Heap cost: ")
-                    .append(localMapStats.getHeapCost())
-                    .append(',')
-                    .append("Misses: ")
-                    .append(localMapStats.getNearCacheStats().getMisses());
+                    .append(localMapStats.getHeapCost());
+
+            if (localMapStats.getNearCacheStats() != null) {
+                builder.append(", Misses: ")
+                        .append(localMapStats.getNearCacheStats().getMisses());
+            }
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder builder = new StringBuilder();
+            this.toString(builder);
+            return builder.toString();
         }
     }
 }

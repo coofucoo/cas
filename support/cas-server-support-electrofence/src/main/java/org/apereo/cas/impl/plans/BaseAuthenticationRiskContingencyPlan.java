@@ -1,6 +1,5 @@
 package org.apereo.cas.impl.plans;
 
-import com.google.common.collect.Sets;
 import org.apereo.cas.api.AuthenticationRiskContingencyPlan;
 import org.apereo.cas.api.AuthenticationRiskContingencyResponse;
 import org.apereo.cas.api.AuthenticationRiskNotifier;
@@ -14,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -23,8 +23,8 @@ import java.util.Set;
  * @since 5.1.0
  */
 public abstract class BaseAuthenticationRiskContingencyPlan implements AuthenticationRiskContingencyPlan {
-    protected final transient Logger logger = LoggerFactory.getLogger(this.getClass());
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(BaseAuthenticationRiskContingencyPlan.class);
+    
     /**
      * CAS properties.
      */
@@ -37,7 +37,7 @@ public abstract class BaseAuthenticationRiskContingencyPlan implements Authentic
     @Autowired
     protected ApplicationContext applicationContext;
 
-    private Set<AuthenticationRiskNotifier> notifiers = Sets.newLinkedHashSet();
+    private final Set<AuthenticationRiskNotifier> notifiers = new LinkedHashSet<>();
 
 
     @Override
@@ -45,13 +45,13 @@ public abstract class BaseAuthenticationRiskContingencyPlan implements Authentic
                                                                final RegisteredService service,
                                                                final AuthenticationRiskScore score,
                                                                final HttpServletRequest request) {
-        logger.debug("Executing {} to produce a risk response", getClass().getSimpleName());
+        LOGGER.debug("Executing [{}] to produce a risk response", getClass().getSimpleName());
 
         notifiers.forEach(e -> {
             e.setAuthentication(authentication);
             e.setAuthenticationRiskScore(score);
             e.setRegisteredService(service);
-            logger.debug("Executing risk notification {}", e.getClass().getSimpleName());
+            LOGGER.debug("Executing risk notification [{}]", e.getClass().getSimpleName());
             new Thread(e, e.getClass().getSimpleName()).start();
         });
         return executeInternal(authentication, service, score, request);

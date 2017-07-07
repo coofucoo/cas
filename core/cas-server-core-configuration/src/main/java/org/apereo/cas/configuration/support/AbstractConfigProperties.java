@@ -2,14 +2,17 @@ package org.apereo.cas.configuration.support;
 
 import org.springframework.core.io.Resource;
 
+import java.io.Serializable;
+
 /**
  * Common properties for configuration models requiring 'config' namespace abstraction.
  *
  * @author Dmitriy Kopylenko
  * @since 5.0.0
  */
-public class AbstractConfigProperties {
+public class AbstractConfigProperties implements Serializable {
 
+    private static final long serialVersionUID = 2167387596301530104L;
     private Config config = new Config();
 
     public Config getConfig() {
@@ -23,7 +26,8 @@ public class AbstractConfigProperties {
     /**
      * Encapsulates re-usable properties for *.config.* namespace.
      */
-    public static class Config {
+    public static class Config implements Serializable {
+        private static final long serialVersionUID = 7767391713429459243L;
         private Resource location;
 
         public Resource getLocation() {

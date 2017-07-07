@@ -1,13 +1,15 @@
 package org.apereo.cas.trusted.authentication.storage;
 
-import com.google.common.collect.Sets;
 import org.apereo.cas.trusted.authentication.api.MultifactorAuthenticationTrustRecord;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * This is {@link RestMultifactorAuthenticationTrustStorage}.
@@ -30,6 +32,12 @@ public class RestMultifactorAuthenticationTrustStorage extends BaseMultifactorAu
     }
 
     @Override
+    public Set<MultifactorAuthenticationTrustRecord> get(final LocalDate onOrAfterDate) {
+        final String url = (!this.endpoint.endsWith("/") ? this.endpoint.concat("/") : this.endpoint).concat(onOrAfterDate.toString());
+        return getResults(url);
+    }
+    
+    @Override
     public void expire(final LocalDate onOrBefore) {
         final RestTemplate restTemplate = new RestTemplate();
         restTemplate.postForEntity(this.endpoint, onOrBefore, Object.class);
@@ -39,12 +47,6 @@ public class RestMultifactorAuthenticationTrustStorage extends BaseMultifactorAu
     public void expire(final String key) {
         final RestTemplate restTemplate = new RestTemplate();
         restTemplate.postForEntity(this.endpoint, key, Object.class);
-    }
-
-    @Override
-    public Set<MultifactorAuthenticationTrustRecord> get(final LocalDate onOrAfterDate) {
-        final String url = (!this.endpoint.endsWith("/") ? this.endpoint.concat("/") : this.endpoint).concat(onOrAfterDate.toString());
-        return getResults(url);
     }
 
     @Override
@@ -63,9 +65,9 @@ public class RestMultifactorAuthenticationTrustStorage extends BaseMultifactorAu
                 restTemplate.getForEntity(url, MultifactorAuthenticationTrustRecord[].class);
         if (responseEntity.getStatusCode() == HttpStatus.OK) {
             final MultifactorAuthenticationTrustRecord[] results = responseEntity.getBody();
-            return Sets.newHashSet(results);
+            return Stream.of(results).collect(Collectors.toSet());
         }
 
-        return Sets.newHashSet();
+        return Collections.emptySet();
     }
 }

@@ -1,17 +1,16 @@
 package org.apereo.cas.ticket.registry;
 
+import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.CoreAuthenticationTestUtils;
+import org.apereo.cas.authentication.principal.Service;
 import org.apereo.cas.services.RegisteredServiceTestUtils;
 import org.apereo.cas.ticket.AbstractTicketException;
 import org.apereo.cas.ticket.ServiceTicket;
 import org.apereo.cas.ticket.Ticket;
 import org.apereo.cas.ticket.TicketGrantingTicket;
+import org.apereo.cas.ticket.TicketGrantingTicketImpl;
 import org.apereo.cas.ticket.proxy.ProxyGrantingTicket;
 import org.apereo.cas.ticket.support.NeverExpiresExpirationPolicy;
-import org.apereo.cas.ticket.TicketGrantingTicketImpl;
-import org.apereo.cas.authentication.Authentication;
-import org.apereo.cas.authentication.principal.Service;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -27,11 +26,11 @@ import static org.junit.Assert.*;
  */
 public class DistributedTicketRegistryTests {
     private static final String TGT_NAME = "TGT";
+    private static final String TGT_ID = "test";
 
     private TestDistributedTicketRegistry ticketRegistry;
 
     private boolean wasTicketUpdated;
-
     
     public void setWasTicketUpdated(final boolean wasTicketUpdated) {
         this.wasTicketUpdated = wasTicketUpdated;
@@ -45,17 +44,16 @@ public class DistributedTicketRegistryTests {
 
     @Test
     public void verifyProxiedInstancesEqual() {
-        final TicketGrantingTicket t = new TicketGrantingTicketImpl("test",
-                CoreAuthenticationTestUtils.getAuthentication(),
+        final TicketGrantingTicket t = new TicketGrantingTicketImpl(TGT_ID, CoreAuthenticationTestUtils.getAuthentication(),
                 new NeverExpiresExpirationPolicy());
         this.ticketRegistry.addTicket(t);
 
-        final TicketGrantingTicket returned = (TicketGrantingTicket) this.ticketRegistry.getTicket("test");
+        final TicketGrantingTicket returned = (TicketGrantingTicket) this.ticketRegistry.getTicket(TGT_ID);
         assertEquals(t, returned);
         assertEquals(returned, t);
 
         assertEquals(t.getCreationTime(), returned.getCreationTime());
-        Assert.assertEquals(t.getAuthentication(), returned.getAuthentication());
+        assertEquals(t.getAuthentication(), returned.getAuthentication());
         assertEquals(t.getCountOfUses(), returned.getCountOfUses());
         assertEquals(t.getGrantingTicket(), returned.getGrantingTicket());
         assertEquals(t.getId(), returned.getId());
@@ -76,17 +74,16 @@ public class DistributedTicketRegistryTests {
         assertEquals(s.getGrantingTicket(), sreturned.getGrantingTicket());
         assertEquals(s.getId(), sreturned.getId());
         assertEquals(s.isExpired(), sreturned.isExpired());
-        Assert.assertEquals(s.getService(), sreturned.getService());
+        assertEquals(s.getService(), sreturned.getService());
         assertEquals(s.isFromNewLogin(), sreturned.isFromNewLogin());
     }
 
     @Test
     public void verifyUpdateOfRegistry() throws AbstractTicketException {
-        final TicketGrantingTicket t = new TicketGrantingTicketImpl("test",
-                CoreAuthenticationTestUtils.getAuthentication(),
+        final TicketGrantingTicket t = new TicketGrantingTicketImpl(TGT_ID, CoreAuthenticationTestUtils.getAuthentication(),
                 new NeverExpiresExpirationPolicy());
         this.ticketRegistry.addTicket(t);
-        final TicketGrantingTicket returned = (TicketGrantingTicket) this.ticketRegistry.getTicket("test");
+        final TicketGrantingTicket returned = (TicketGrantingTicket) this.ticketRegistry.getTicket(TGT_ID);
 
         final ServiceTicket s = returned.grantServiceTicket("test2", RegisteredServiceTestUtils.getService(),
                 new NeverExpiresExpirationPolicy(), false, true);
@@ -146,8 +143,9 @@ public class DistributedTicketRegistryTests {
         }
 
         @Override
-        public void updateTicket(final Ticket ticket) {
+        public Ticket updateTicket(final Ticket ticket) {
             this.parent.setWasTicketUpdated(true);
+            return ticket;
         }
 
         @Override
@@ -169,6 +167,13 @@ public class DistributedTicketRegistryTests {
         @Override
         public boolean deleteSingleTicket(final String ticketId) {
             return this.tickets.remove(ticketId) != null;
+        }
+
+        @Override
+        public long deleteAll() {
+            final int size = this.tickets.size();
+            this.tickets.clear();
+            return size;
         }
     }
 }

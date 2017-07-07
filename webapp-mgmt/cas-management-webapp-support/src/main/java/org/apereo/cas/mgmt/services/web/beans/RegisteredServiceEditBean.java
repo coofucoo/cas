@@ -1,6 +1,5 @@
 package org.apereo.cas.mgmt.services.web.beans;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
@@ -8,6 +7,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,6 +112,8 @@ public class RegisteredServiceEditBean implements Serializable {
         private String description;
         private String logoUrl;
         private String theme;
+        private String informationUrl;
+        private String privacyUrl;
         private int evalOrder = Integer.MIN_VALUE;
         private Set<String> requiredHandlers = new HashSet<>();
         private String logoutUrl;
@@ -129,7 +131,23 @@ public class RegisteredServiceEditBean implements Serializable {
         private RegisteredServiceAttributeReleasePolicyEditBean attrRelease
                 = new RegisteredServiceAttributeReleasePolicyEditBean();
         private Map<String, Map<String, ?>> customComponent = new HashMap<>();
-        private Set<PropertyBean> properties = Sets.newLinkedHashSet();
+        private Set<PropertyBean> properties = new LinkedHashSet<>();
+
+        public String getInformationUrl() {
+            return informationUrl;
+        }
+
+        public void setInformationUrl(final String informationUrl) {
+            this.informationUrl = informationUrl;
+        }
+
+        public String getPrivacyUrl() {
+            return privacyUrl;
+        }
+
+        public void setPrivacyUrl(final String privacyUrl) {
+            this.privacyUrl = privacyUrl;
+        }
 
         public void setProperties(final Set<PropertyBean> properties) {
             this.properties = properties;
@@ -300,6 +318,18 @@ public class RegisteredServiceEditBean implements Serializable {
             return this.customComponent;
         }
 
+        /**
+         * Get the current properties for the specified custom component. The returned {@link Map} should only contain
+         * nested Maps, Arrays, and simple objects.
+         *
+         * @param componentName name of the component to get the properties for (this should be unique for each
+         *                      component)
+         * @return current custom component properties
+         */
+        public Map<String, ?> getCustomComponent(final String componentName) {
+            return this.customComponent.get(componentName);
+        }
+
         public RegisteredServiceSamlTypeEditBean getSaml() {
             return saml;
         }
@@ -316,19 +346,7 @@ public class RegisteredServiceEditBean implements Serializable {
         public void setCustomComponent(final Map<String, Map<String, ?>> customComponent) {
             this.customComponent = customComponent;
         }
-
-        /**
-         * Get the current properties for the specified custom component. The returned {@link Map} should only contain
-         * nested Maps, Arrays, and simple objects.
-         *
-         * @param componentName name of the component to get the properties for (this should be unique for each
-         *                      component)
-         * @return current custom component properties
-         */
-        public Map<String, ?> getCustomComponent(final String componentName) {
-            return this.customComponent.get(componentName);
-        }
-
+        
         /**
          * This is reserved for usage by any custom components that need to present their config to the management UI.
          * The provided {@link Map} should only contain nested Maps, Arrays, and simple objects.

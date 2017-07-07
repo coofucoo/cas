@@ -3,7 +3,9 @@ package org.apereo.cas.authentication;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import org.apache.commons.codec.binary.StringUtils;
+import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.integration.pac4j.authentication.handler.support.UsernamePasswordWrapperAuthenticationHandler;
+import org.apereo.cas.services.ServicesManager;
 import org.pac4j.core.credentials.UsernamePasswordCredentials;
 import org.pac4j.core.credentials.authenticator.Authenticator;
 import org.pac4j.core.credentials.password.PasswordEncoder;
@@ -20,19 +22,31 @@ public class MongoAuthenticationHandler extends UsernamePasswordWrapperAuthentic
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoAuthenticationHandler.class);
     
-    private String collectionName;
-    private String mongoHostUri;
-    private String attributes;
-    private String usernameAttribute;
-    private String passwordAttribute;
+    private final String collectionName;
+    private final String mongoHostUri;
+    private final String attributes;
+    private final String usernameAttribute;
+    private final String passwordAttribute;
     
     private PasswordEncoder mongoPasswordEncoder = new NoOpPasswordEncoder();
+
+    public MongoAuthenticationHandler(final String name, final ServicesManager servicesManager, final PrincipalFactory principalFactory,
+                                      final String collectionName, final String mongoHostUri, final String attributes, final String usernameAttribute,
+                                      final String passwordAttribute, final PasswordEncoder mongoPasswordEncoder) {
+        super(name, servicesManager, principalFactory, null);
+        this.collectionName = collectionName;
+        this.mongoHostUri = mongoHostUri;
+        this.attributes = attributes;
+        this.usernameAttribute = usernameAttribute;
+        this.passwordAttribute = passwordAttribute;
+        this.mongoPasswordEncoder = mongoPasswordEncoder;
+    }
 
     @Override
     protected Authenticator<UsernamePasswordCredentials> getAuthenticator(final Credential credential) {
         final MongoClientURI uri = new MongoClientURI(this.mongoHostUri);
         final MongoClient client = new MongoClient(uri);
-        LOGGER.info("Connected to MongoDb instance @ {} using database [{}]",
+        LOGGER.info("Connected to MongoDb instance @ [{}] using database [{}]",
                 uri.getHosts(), uri.getDatabase());
 
         final MongoAuthenticator mongoAuthenticator = new MongoAuthenticator(client, this.attributes);
@@ -44,30 +58,6 @@ public class MongoAuthenticationHandler extends UsernamePasswordWrapperAuthentic
         return mongoAuthenticator;
     }
     
-    public void setMongoHostUri(final String mongoHostUri) {
-        this.mongoHostUri = mongoHostUri;
-    }
-
-    public void setCollectionName(final String collectionName) {
-        this.collectionName = collectionName;
-    }
-    
-    public void setAttributes(final String attributes) {
-        this.attributes = attributes;
-    }
-
-    public void setUsernameAttribute(final String usernameAttribute) {
-        this.usernameAttribute = usernameAttribute;
-    }
-
-    public void setPasswordAttribute(final String passwordAttribute) {
-        this.passwordAttribute = passwordAttribute;
-    }
-
-    public void setMongoPasswordEncoder(final PasswordEncoder mongoPasswordEncoder) {
-        this.mongoPasswordEncoder = mongoPasswordEncoder;
-    }
-
     private static class NoOpPasswordEncoder implements PasswordEncoder {
         @Override
         public String encode(final String s) {

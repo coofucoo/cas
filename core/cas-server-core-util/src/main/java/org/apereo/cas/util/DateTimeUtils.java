@@ -9,13 +9,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.chrono.ChronoZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
-
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * @author Timur Duehr timur.duehr@nccgroup.trust
@@ -41,6 +41,26 @@ public final class DateTimeUtils {
     }
 
     /**
+     * Local date time of local date time.
+     *
+     * @param time the time
+     * @return the local date time
+     */
+    public static LocalDateTime localDateTimeOf(final long time) {
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.systemDefault());
+    }
+
+    /**
+     * Local date time of local date time.
+     *
+     * @param time the time
+     * @return the local date time
+     */
+    public static LocalDateTime localDateTimeOf(final Date time) {
+        return localDateTimeOf(time.getTime());
+    }
+
+    /**
      * Parse the given value as a zoned datetime.
      *
      * @param value the value
@@ -53,47 +73,52 @@ public final class DateTimeUtils {
             return null;
         }
     }
-        
+
     /**
      * Utility for creating a ZonedDateTime object from a ZonedDateTime.
+     *
      * @param time ZonedDateTime to be copied
      * @return ZonedDateTime representing time
      */
 
-    public static ZonedDateTime zonedDateTimeOf(final ZonedDateTime time){
+    public static ZonedDateTime zonedDateTimeOf(final TemporalAccessor time) {
         return ZonedDateTime.from(time);
     }
 
     /**
+     * Gets ZonedDateTime for ReadableInstant.
+     *
+     * @param time Time object to be converted.
+     * @return ZonedDateTime representing time
+     */
+    public static ZonedDateTime zonedDateTimeOf(final ReadableInstant time) {
+        return zonedDateTimeOf(time.getMillis());
+    }
+
+    /**
      * Utility for creating a ZonedDateTime object from a millisecond timestamp.
+     *
      * @param time Milliseconds since Epoch UTC
      * @return ZonedDateTime representing time
      */
-    public static ZonedDateTime zonedDateTimeOf(final long time){
+    public static ZonedDateTime zonedDateTimeOf(final long time) {
         return zonedDateTimeOf(time, ZoneOffset.UTC);
     }
 
     /**
      * Utility for creating a ZonedDateTime object from a millisecond timestamp.
-     * @param time Miliseconds since Epoch
+     *
+     * @param time   Miliseconds since Epoch
      * @param zoneId Time zone
      * @return ZonedDateTime representing time
      */
-    public static ZonedDateTime zonedDateTimeOf(final long time, final ZoneId zoneId){
+    public static ZonedDateTime zonedDateTimeOf(final long time, final ZoneId zoneId) {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), zoneId);
     }
-
-    /**
-     * Gets ZonedDateTime for ReadableInstant.
-     * @param time Time object to be converted.
-     * @return ZonedDateTime representing time
-     */
-    public static ZonedDateTime zonedDateTimeOf(final ReadableInstant time){
-        return zonedDateTimeOf(time.getMillis());
-    }
-
+    
     /**
      * Gets ZonedDateTime for Date.
+     *
      * @param time Time object to be converted.
      * @return ZonedDateTime representing time
      */
@@ -103,6 +128,7 @@ public final class DateTimeUtils {
 
     /**
      * Gets ZonedDateTime for Calendar.
+     *
      * @param time Time object to be converted.
      * @return ZonedDateTime representing time
      */
@@ -112,51 +138,58 @@ public final class DateTimeUtils {
 
     /**
      * Gets DateTime for Instant.
+     *
      * @param time Time object to be converted.
      * @return DateTime representing time
      */
-    public static DateTime dateTimeOf(final Instant time){
+    public static DateTime dateTimeOf(final Instant time) {
         return new DateTime(time.toEpochMilli());
     }
 
     /**
      * Gets DateTime for ZonedDateTime.
+     *
      * @param time Time object to be converted.
      * @return DateTime representing time
      */
-    public static DateTime dateTimeOf(final ZonedDateTime time){
+    public static DateTime dateTimeOf(final ChronoZonedDateTime time) {
         return dateTimeOf(time.toInstant());
     }
 
     /**
      * Gets Date for ZonedDateTime.
+     *
      * @param time Time object to be converted.
      * @return Date representing time
      */
-    public static Date dateOf(final ZonedDateTime time){
+    public static Date dateOf(final ChronoZonedDateTime time) {
         return dateOf(time.toInstant());
     }
 
+
     /**
      * Gets Date for Instant.
+     *
      * @param time Time object to be converted.
      * @return Date representing time
      */
-    public static Date dateOf(final Instant time){
+    public static Date dateOf(final Instant time) {
         return Date.from(time);
     }
 
     /**
      * Gets Timestamp for ZonedDateTime.
+     *
      * @param time Time object to be converted.
      * @return Timestamp representing time
      */
-    public static Timestamp timestampOf(final ZonedDateTime time) {
+    public static Timestamp timestampOf(final ChronoZonedDateTime time) {
         return timestampOf(time.toInstant());
     }
 
     /**
      * Gets Timestamp for Instant.
+     *
      * @param time Time object to be converted.
      * @return Timestamp representing time
      */

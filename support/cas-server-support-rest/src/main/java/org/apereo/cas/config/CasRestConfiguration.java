@@ -3,12 +3,15 @@ package org.apereo.cas.config;
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.CentralAuthenticationService;
 import org.apereo.cas.authentication.AuthenticationSystemSupport;
-import org.apereo.cas.authentication.DefaultAuthenticationSystemSupport;
 import org.apereo.cas.authentication.principal.ServiceFactory;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.support.rest.CredentialFactory;
 import org.apereo.cas.support.rest.DefaultCredentialFactory;
-import org.apereo.cas.support.rest.TicketsResource;
+import org.apereo.cas.support.rest.DefaultServiceTicketResourceEntityResponseFactory;
+import org.apereo.cas.support.rest.ServiceTicketResourceEntityResponseFactory;
+import org.apereo.cas.support.rest.resources.ServiceTicketResource;
+import org.apereo.cas.support.rest.resources.TicketGrantingTicketResource;
+import org.apereo.cas.support.rest.resources.TicketStatusResource;
 import org.apereo.cas.ticket.registry.TicketRegistrySupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -44,8 +47,7 @@ public class CasRestConfiguration extends WebMvcConfigurerAdapter {
 
     @Autowired(required = false)
     @Qualifier("defaultAuthenticationSystemSupport")
-    private AuthenticationSystemSupport authenticationSystemSupport =
-            new DefaultAuthenticationSystemSupport();
+    private AuthenticationSystemSupport authenticationSystemSupport;
 
     @Autowired(required = false)
     private CredentialFactory credentialFactory = new DefaultCredentialFactory();
@@ -63,23 +65,35 @@ public class CasRestConfiguration extends WebMvcConfigurerAdapter {
 
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
-        registry.addInterceptor(defaultRestAuthenticationThrottle()).addPathPatterns("/v1/**");
+        registry.addInterceptor(restAuthenticationThrottle()).addPathPatterns("/v1/**");
     }
 
     @Bean
-    public TicketsResource ticketResourceRestController() {
-        final TicketsResource r = new TicketsResource();
-        r.setAuthenticationSystemSupport(authenticationSystemSupport);
-        r.setCredentialFactory(credentialFactory);
-        r.setTicketRegistrySupport(ticketRegistrySupport);
-        r.setWebApplicationServiceFactory(webApplicationServiceFactory);
-        r.setCentralAuthenticationService(centralAuthenticationService);
-        return r;
+    public TicketStatusResource ticketStatusResource() {
+        return new TicketStatusResource(centralAuthenticationService);
+    }
+
+    @Bean
+    public ServiceTicketResource serviceTicketResource() {
+        return new ServiceTicketResource(authenticationSystemSupport, ticketRegistrySupport,
+                webApplicationServiceFactory, serviceTicketResourceEntityResponseFactory());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "serviceTicketResourceEntityResponseFactory")
+    public ServiceTicketResourceEntityResponseFactory serviceTicketResourceEntityResponseFactory() {
+        return new DefaultServiceTicketResourceEntityResponseFactory(centralAuthenticationService);
+    }
+
+    @Bean
+    public TicketGrantingTicketResource ticketResourceRestController() {
+        return new TicketGrantingTicketResource(authenticationSystemSupport,
+                credentialFactory, centralAuthenticationService);
     }
 
     @ConditionalOnMissingBean(name = "restAuthenticationThrottle")
-    @Bean(name = {"defaultRestAuthenticationThrottle", "restAuthenticationThrottle"})
-    public HandlerInterceptor defaultRestAuthenticationThrottle() {
+    @Bean
+    public HandlerInterceptor restAuthenticationThrottle() {
         final String throttler = casProperties.getRest().getThrottler();
         if (StringUtils.isNotBlank(throttler) && this.applicationContext.containsBean(throttler)) {
             return this.applicationContext.getBean(throttler, HandlerInterceptor.class);

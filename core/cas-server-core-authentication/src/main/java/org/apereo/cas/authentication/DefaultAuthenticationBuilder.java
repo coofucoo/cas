@@ -24,16 +24,16 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     private Principal principal;
 
     /** Credential metadata. */
-    private List<CredentialMetaData> credentials = new ArrayList<>();
+    private final List<CredentialMetaData> credentials = new ArrayList<>();
 
     /** Authentication metadata attributes. */
-    private Map<String, Object> attributes = new LinkedHashMap<>();
+    private final Map<String, Object> attributes = new LinkedHashMap<>();
 
     /** Map of handler names to authentication successes. */
-    private Map<String, HandlerResult> successes = new LinkedHashMap<>();
+    private final Map<String, HandlerResult> successes = new LinkedHashMap<>();
 
     /** Map of handler names to authentication failures. */
-    private Map<String, Class<? extends Exception>> failures = new LinkedHashMap<>();
+    private final Map<String, Class<? extends Exception>> failures = new LinkedHashMap<>();
 
     /** Authentication date. */
     private ZonedDateTime authenticationDate;
@@ -172,8 +172,8 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
         if (currentValue == null) {
             return addAttribute(key, value);
         }
-        final Collection collection = CollectionUtils.convertValueToCollection(currentValue);
-        collection.addAll(CollectionUtils.convertValueToCollection(value));
+        final Collection collection = CollectionUtils.toCollection(currentValue);
+        collection.addAll(CollectionUtils.toCollection(value));
         return addAttribute(key, collection);
     }
 
@@ -181,7 +181,7 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     public boolean hasAttribute(final String name, final Predicate<Object> predicate) {
         if (this.attributes.containsKey(name)) {
             final Object value = this.attributes.get(name);
-            final Collection valueCol = CollectionUtils.convertValueToCollection(value);
+            final Collection valueCol = CollectionUtils.toCollection(value);
             return valueCol.stream().filter(predicate).count() > 0;
         }
         return false;

@@ -1,23 +1,32 @@
 package org.apereo.cas.config;
 
-import org.apereo.cas.util.ApplicationContextProvider;
-import org.apereo.cas.util.SpringAwareMessageMessageInterpolator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.config.EmbeddedValueResolver;
+import org.apereo.cas.config.support.CasConfigurationEmbeddedValueResolver;
+import org.apereo.cas.util.SchedulingUtils;
+import org.apereo.cas.util.io.CommunicationsManager;
+import org.apereo.cas.util.spring.ApplicationContextProvider;
+import org.apereo.cas.util.spring.Converters;
+import org.apereo.cas.util.spring.SpringAwareMessageMessageInterpolator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Role;
 import org.springframework.core.Ordered;
-import org.springframework.core.convert.ConversionFailedException;
-import org.springframework.core.convert.ConversionService;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.core.convert.converter.ConverterRegistry;
+import org.springframework.core.convert.support.DefaultConversionService;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.format.support.DefaultFormattingConversionService;
-import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.util.StringValueResolver;
 
 import javax.annotation.PostConstruct;
 import javax.validation.MessageInterpolator;
-import java.time.Duration;
+import java.time.ZonedDateTime;
 
 /**
  * This is {@link CasCoreUtilConfiguration}.
@@ -27,8 +36,11 @@ import java.time.Duration;
  */
 @Configuration("casCoreUtilConfiguration")
 @AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
+@EnableScheduling
 public class CasCoreUtilConfiguration {
-    private static final Logger LOGGER = LoggerFactory.getLogger(CasCoreUtilConfiguration.class);
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @Bean
     public ApplicationContextProvider applicationContextProvider() {
@@ -40,31 +52,32 @@ public class CasCoreUtilConfiguration {
         return new SpringAwareMessageMessageInterpolator();
     }
 
-    @PostConstruct
-    public void init() {
-        final ConfigurableApplicationContext applicationContext = applicationContextProvider().getConfigurableApplicationContext();
-
-        final DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService(true);
-        applicationContext.getEnvironment().setConversionService(conversionService);
-
-        final ScheduledAnnotationBeanPostProcessor p = applicationContext.getBean(ScheduledAnnotationBeanPostProcessor.class);
-        p.setEmbeddedValueResolver(new EmbeddedValueResolver(applicationContext.getBeanFactory()) {
-            @Override
-            public String resolveStringValue(final String strVal) {
-                final String value = super.resolveStringValue(strVal);
-                try {
-                    final ConversionService service = applicationContext.getEnvironment().getConversionService();
-                    final Duration dur = service.convert(value, Duration.class);
-                    if (dur != null) {
-                        return String.valueOf(dur.toMillis());
-                    }
-                    return value;
-                } catch (final ConversionFailedException e) {
-                    LOGGER.trace(e.getMessage());
-                    return value;
-                }
-            }
-        });
+    @Bean
+    public CommunicationsManager communicationsManager() {
+        return new CommunicationsManager();
     }
 
+    @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public StringValueResolver durationCapableStringValueResolver() {
+        return SchedulingUtils.prepScheduledAnnotationBeanPostProcessor(applicationContext);
+    }
+
+    @Bean
+    public Converter<ZonedDateTime, String> zonedDateTimeToStringConverter() {
+        return new Converters.ZonedDateTimeToStringConverter();
+    }
+
+    @PostConstruct
+    public void init() {
+        final ConfigurableApplicationContext ctx = applicationContextProvider().getConfigurableApplicationContext();
+        final DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService(true);
+        conversionService.setEmbeddedValueResolver(new CasConfigurationEmbeddedValueResolver(ctx));
+        ctx.getEnvironment().setConversionService(conversionService);
+        final ConfigurableEnvironment env = (ConfigurableEnvironment) ctx.getParent().getEnvironment();
+        env.setConversionService(conversionService);
+        final ConverterRegistry registry = (ConverterRegistry) DefaultConversionService.getSharedInstance();
+        registry.addConverter(zonedDateTimeToStringConverter());
+    }
 }

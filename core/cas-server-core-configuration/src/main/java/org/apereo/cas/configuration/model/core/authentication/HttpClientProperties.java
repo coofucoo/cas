@@ -1,7 +1,6 @@
 package org.apereo.cas.configuration.model.core.authentication;
 
 import org.apereo.cas.configuration.support.Beans;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
 /**
@@ -15,9 +14,18 @@ public class HttpClientProperties {
     private String connectionTimeout = "PT5S";
     private String readTimeout = "PT5S";
     private String asyncTimeout = "PT5S";
+    private String hostNameVerifier = "default";
 
     private Truststore truststore = new Truststore();
-    
+
+    public String getHostNameVerifier() {
+        return hostNameVerifier;
+    }
+
+    public void setHostNameVerifier(final String hostNameVerifier) {
+        this.hostNameVerifier = hostNameVerifier;
+    }
+
     public long getAsyncTimeout() {
         return Beans.newDuration(this.asyncTimeout).toMillis();
     }
@@ -51,7 +59,7 @@ public class HttpClientProperties {
     }
 
     public static class Truststore {
-        private Resource file = new ClassPathResource("truststore.jks");
+        private Resource file;
 
         private String psw = "changeit";
 

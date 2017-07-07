@@ -1,7 +1,5 @@
 package org.apereo.cas.support.saml.mdui.config;
 
-import com.google.common.collect.ImmutableList;
-import net.shibboleth.idp.profile.spring.factory.BasicResourceCredentialFactoryBean;
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.authentication.principal.ServiceFactory;
 import org.apereo.cas.authentication.principal.WebApplicationService;
@@ -9,6 +7,7 @@ import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.support.saml.OpenSamlConfigBean;
 import org.apereo.cas.support.saml.SamlProtocolConstants;
+import org.apereo.cas.support.saml.SamlUtils;
 import org.apereo.cas.support.saml.mdui.AbstractMetadataResolverAdapter;
 import org.apereo.cas.support.saml.mdui.ChainingMetadataResolverAdapter;
 import org.apereo.cas.support.saml.mdui.DynamicMetadataResolverAdapter;
@@ -16,19 +15,15 @@ import org.apereo.cas.support.saml.mdui.MetadataResolverAdapter;
 import org.apereo.cas.support.saml.mdui.StaticMetadataResolverAdapter;
 import org.apereo.cas.support.saml.mdui.web.flow.SamlMetadataUIParserAction;
 import org.apereo.cas.support.saml.mdui.web.flow.SamlMetadataUIWebflowConfigurer;
+import org.apereo.cas.util.ResourceUtils;
 import org.apereo.cas.web.flow.CasWebflowConfigurer;
 import org.jooq.lambda.Unchecked;
 import org.opensaml.saml.metadata.resolver.filter.MetadataFilter;
 import org.opensaml.saml.metadata.resolver.filter.MetadataFilterChain;
 import org.opensaml.saml.metadata.resolver.filter.impl.RequiredValidUntilFilter;
 import org.opensaml.saml.metadata.resolver.filter.impl.SignatureValidationFilter;
-import org.opensaml.security.credential.impl.StaticCredentialResolver;
-import org.opensaml.xmlsec.keyinfo.impl.BasicProviderKeyInfoCredentialResolver;
-import org.opensaml.xmlsec.keyinfo.impl.provider.DEREncodedKeyValueProvider;
-import org.opensaml.xmlsec.keyinfo.impl.provider.DSAKeyValueProvider;
-import org.opensaml.xmlsec.keyinfo.impl.provider.InlineX509DataProvider;
-import org.opensaml.xmlsec.keyinfo.impl.provider.RSAKeyValueProvider;
-import org.opensaml.xmlsec.signature.support.impl.ExplicitKeySignatureTrustEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -57,6 +52,8 @@ import java.util.Map;
 @EnableConfigurationProperties(CasConfigurationProperties.class)
 public class SamlMetadataUIConfiguration {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SamlMetadataUIConfiguration.class);
+
     private static final String DEFAULT_SEPARATOR = "::";
 
     @Autowired
@@ -80,36 +77,29 @@ public class SamlMetadataUIConfiguration {
     @Qualifier("servicesManager")
     private ServicesManager servicesManager;
 
-    @javax.annotation.Resource(name = "webApplicationServiceFactory")
+    @Autowired
+    @Qualifier("webApplicationServiceFactory")
     private ServiceFactory<WebApplicationService> serviceFactory;
 
     @ConditionalOnMissingBean(name = "samlMetadataUIWebConfigurer")
     @Bean
     public CasWebflowConfigurer samlMetadataUIWebConfigurer() {
-        final SamlMetadataUIWebflowConfigurer w = new SamlMetadataUIWebflowConfigurer();
-        w.setSamlMetadataUIParserAction(samlMetadataUIParserAction());
-        w.setLoginFlowDefinitionRegistry(loginFlowDefinitionRegistry);
-        w.setFlowBuilderServices(flowBuilderServices);
-        return w;
+        return new SamlMetadataUIWebflowConfigurer(flowBuilderServices, loginFlowDefinitionRegistry, samlMetadataUIParserAction());
     }
 
+    @ConditionalOnMissingBean(name = "samlMetadataUIParserAction")
     @Bean
     public Action samlMetadataUIParserAction() {
         final String parameter = StringUtils.defaultIfEmpty(casProperties.getSamlMetadataUi().getParameter(),
                 SamlProtocolConstants.PARAMETER_ENTITY_ID);
-        final SamlMetadataUIParserAction a = new SamlMetadataUIParserAction(parameter, metadataAdapter());
-
-        a.setServiceFactory(this.serviceFactory);
-        a.setServicesManager(this.servicesManager);
-        return a;
+        return new SamlMetadataUIParserAction(parameter, chainingSamlMetadataUIMetadataResolverAdapter(),
+                serviceFactory, servicesManager);
     }
 
+    @ConditionalOnMissingBean(name = "chainingSamlMetadataUIMetadataResolverAdapter")
     @Bean
-    public MetadataResolverAdapter metadataAdapter() {
-        final ChainingMetadataResolverAdapter adapter = new ChainingMetadataResolverAdapter();
-        adapter.getAdapters().add(getStaticMetadataResolverAdapter());
-        adapter.getAdapters().add(getDynamicMetadataResolverAdapter());
-        return adapter;
+    public MetadataResolverAdapter chainingSamlMetadataUIMetadataResolverAdapter() {
+        return new ChainingMetadataResolverAdapter(Arrays.asList(getStaticMetadataResolverAdapter(), getDynamicMetadataResolverAdapter()));
     }
 
     private MetadataResolverAdapter configureAdapter(final AbstractMetadataResolverAdapter adapter) {
@@ -128,9 +118,7 @@ public class SamlMetadataUIConfiguration {
         final String[] splitArray = org.springframework.util.StringUtils.commaDelimitedListToStringArray(r);
 
         Arrays.stream(splitArray).forEach(Unchecked.consumer(entry -> {
-
             final String[] arr = entry.split(DEFAULT_SEPARATOR);
-
             final String metadataFile = arr[0];
             final String signingKey = arr.length > 1 ? arr[1] : null;
 
@@ -139,40 +127,32 @@ public class SamlMetadataUIConfiguration {
                 filters.add(new RequiredValidUntilFilter(casProperties.getSamlMetadataUi().getMaxValidity()));
             }
 
-            if (StringUtils.isNotEmpty(signingKey)) {
-                final BasicResourceCredentialFactoryBean credential = new BasicResourceCredentialFactoryBean();
-                credential.setPublicKeyInfo(this.resourceLoader.getResource(signingKey));
-                credential.afterPropertiesSet();
-                final StaticCredentialResolver credentialResolver =
-                        new StaticCredentialResolver(credential.getObject());
-
-                final BasicProviderKeyInfoCredentialResolver keyInfoResolver =
-                        new BasicProviderKeyInfoCredentialResolver(
-                                ImmutableList.of(
-                                        new RSAKeyValueProvider(),
-                                        new DSAKeyValueProvider(),
-                                        new DEREncodedKeyValueProvider(),
-                                        new InlineX509DataProvider()
-                                )
-                        );
-                final ExplicitKeySignatureTrustEngine engine =
-                        new ExplicitKeySignatureTrustEngine(credentialResolver, keyInfoResolver);
-
-                final SignatureValidationFilter sigFilter = new SignatureValidationFilter(engine);
-                sigFilter.setRequireSignedRoot(casProperties.getSamlMetadataUi().isRequireSignedRoot());
-                filters.add(sigFilter);
+            boolean addResource = true;
+            if (StringUtils.isNotBlank(signingKey)) {
+                final SignatureValidationFilter sigFilter = SamlUtils.buildSignatureValidationFilter(this.resourceLoader, signingKey);
+                if (sigFilter != null) {
+                    sigFilter.setRequireSignedRoot(casProperties.getSamlMetadataUi().isRequireSignedRoot());
+                    filters.add(sigFilter);
+                } else {
+                    LOGGER.warn("Failed to locate the signing key [{}] for [{}]", signingKey, metadataFile);
+                    addResource = false;
+                }
             }
             chain.setFilters(filters);
-            resources.put(this.resourceLoader.getResource(metadataFile), chain);
-        }));
 
+            final Resource resource = this.resourceLoader.getResource(metadataFile);
+            if (addResource && ResourceUtils.doesResourceExist(resource)) {
+                resources.put(resource, chain);
+            } else {
+                LOGGER.warn("Skipping metadata [{}]; Either the resource cannot be retrieved or its signing key is missing", metadataFile);
+            }
+        }));
     }
 
     private MetadataResolverAdapter getDynamicMetadataResolverAdapter() {
         final DynamicMetadataResolverAdapter adapter = new DynamicMetadataResolverAdapter();
         configureAdapter(adapter);
         return adapter;
-
     }
 
     private MetadataResolverAdapter getStaticMetadataResolverAdapter() {

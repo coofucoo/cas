@@ -1,12 +1,13 @@
 package org.apereo.cas.mgmt.services.web;
 
 import com.google.common.base.Throwables;
-import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.mgmt.services.web.beans.RegisteredServiceEditBean;
 import org.apereo.cas.mgmt.services.web.factory.RegisteredServiceFactory;
 import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.services.ServicesManager;
-import org.apereo.cas.util.serialization.JsonUtils;
+import org.apereo.cas.util.JsonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,12 +28,12 @@ import java.util.Map;
  */
 @Controller("registeredServiceSimpleFormController")
 public class RegisteredServiceSimpleFormController extends AbstractManagementController {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(RegisteredServiceSimpleFormController.class);
+    
     /**
      * Instance of the RegisteredServiceFactory.
      */
-
-    private RegisteredServiceFactory registeredServiceFactory;
+    private final RegisteredServiceFactory registeredServiceFactory;
 
     /**
      * Instantiates a new registered service simple form controller.
@@ -40,9 +41,7 @@ public class RegisteredServiceSimpleFormController extends AbstractManagementCon
      * @param servicesManager          the services manager
      * @param registeredServiceFactory the registered service factory
      */
-    public RegisteredServiceSimpleFormController(
-            final ServicesManager servicesManager,
-            final RegisteredServiceFactory registeredServiceFactory) {
+    public RegisteredServiceSimpleFormController(final ServicesManager servicesManager, final RegisteredServiceFactory registeredServiceFactory) {
         super(servicesManager);
         this.registeredServiceFactory = registeredServiceFactory;
     }
@@ -56,21 +55,13 @@ public class RegisteredServiceSimpleFormController extends AbstractManagementCon
      * @param service  the edit bean
      */
     @PostMapping(value = "saveService.html")
-    public void saveService(final HttpServletRequest request,
-                            final HttpServletResponse response,
+    public void saveService(final HttpServletRequest request, final HttpServletResponse response,
                             @RequestBody final RegisteredServiceEditBean.ServiceData service,
                             final BindingResult result) {
         try {
-            if (StringUtils.isNotBlank(service.getAssignedId())) {
-                final RegisteredService svc = this.servicesManager.findServiceBy(Long.parseLong(service.getAssignedId()));
-                if (svc != null) {
-                    this.servicesManager.delete(svc.getId());
-                }
-            }
-            
             final RegisteredService svcToUse = this.registeredServiceFactory.createRegisteredService(service);
             final RegisteredService newSvc = this.servicesManager.save(svcToUse);
-            logger.info("Saved changes to service {}", svcToUse.getId());
+            LOGGER.info("Saved changes to service [{}]", svcToUse.getId());
 
             final Map<String, Object> model = new HashMap<>();
             model.put("id", newSvc.getId());
@@ -91,7 +82,6 @@ public class RegisteredServiceSimpleFormController extends AbstractManagementCon
     @GetMapping(value = "getService")
     public void getServiceById(@RequestParam(value = "id", required = false) final Long id,
                                final HttpServletRequest request, final HttpServletResponse response) {
-
         try {
             final RegisteredServiceEditBean bean = new RegisteredServiceEditBean();
             if (id == -1) {
@@ -100,7 +90,7 @@ public class RegisteredServiceSimpleFormController extends AbstractManagementCon
                 final RegisteredService service = this.servicesManager.findServiceBy(id);
 
                 if (service == null) {
-                    logger.warn("Invalid service id specified [{}]. Cannot find service in the registry", id);
+                    LOGGER.warn("Invalid service id specified [{}]. Cannot find service in the registry", id);
                     throw new IllegalArgumentException("Service id " + id + " cannot be found");
                 }
                 bean.setServiceData(this.registeredServiceFactory.createServiceData(service));

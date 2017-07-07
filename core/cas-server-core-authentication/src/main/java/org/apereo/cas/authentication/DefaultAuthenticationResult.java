@@ -2,8 +2,6 @@ package org.apereo.cas.authentication;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apereo.cas.authentication.principal.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -16,14 +14,13 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultAuthenticationResult implements AuthenticationResult {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAuthenticationResult.class);
     private static final long serialVersionUID = 8454900425245262824L;
 
     private boolean credentialProvided;
 
-    private Authentication authentication;
+    private final Authentication authentication;
 
-    private Service service;
+    private final Service service;
 
     /**
      * Instantiates a new Default authentication result.

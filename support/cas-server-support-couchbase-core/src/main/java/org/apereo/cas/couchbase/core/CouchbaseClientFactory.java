@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A factory class which produces a client for a particular Couchbase bucket.
+ * A factory class which produces a client for a particular Couchbase getBucket.
  * A design consideration was that we want the server to start even if Couchbase
  * is unavailable, picking up the connection when Couchbase comes online. Hence
  * the creation of the client is made using a scheduled task which is repeated
@@ -27,55 +27,77 @@ import java.util.concurrent.TimeUnit;
  * @since 4.2
  */
 public class CouchbaseClientFactory {
-    private final transient Logger logger = LoggerFactory.getLogger(getClass());
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseClientFactory.class);
+    private static final int DEFAULT_TIMEOUT = 5;
 
     private Cluster cluster;
     private Bucket bucket;
-    private List<View> views;
+    private final List<View> views;
+    private final Set<String> nodes;
 
-    
-    private Set<String> nodes;
-
-    /* The name of the bucket, will use the default bucket unless otherwise specified. */
+    /* The name of the getBucket, will use the default getBucket unless otherwise specified. */
     private String bucketName = "default";
 
-    /* Password for the bucket if any. */
-    private String password = StringUtils.EMPTY;
+    /* Password for the getBucket if any. */
+    private String bucketPassword = StringUtils.EMPTY;
 
-    /* Design document and views to create in the bucket, if any. */
-    private String designDocument;
+    /* Design document and views to create in the getBucket, if any. */
+    private final String designDocument;
 
-    private long timeout = 5;
+    private long timeout = DEFAULT_TIMEOUT;
 
     /**
      * Instantiates a new Couchbase client factory.
+     *
+     * @param nodes          cluster nodes
+     * @param bucketName     getBucket name
+     * @param bucketPassword the bucket password
+     * @param timeout        connection timeout
+     * @param documentName   the document name
+     * @param views          the views
      */
-    public CouchbaseClientFactory() {}
+    public CouchbaseClientFactory(final Set<String> nodes, final String bucketName,
+                                  final String bucketPassword, final long timeout,
+                                  final String documentName, final List<View> views) {
+        this.nodes = nodes;
+        this.bucketName = bucketName;
+        this.bucketPassword = bucketPassword;
+        this.timeout = timeout;
 
-    /**
-     * Start initializing the client. This will schedule a task that retries
-     * connection until successful.
-     */
-    public void initialize() {
-        try {
-            logger.debug("Trying to connect to couchbase bucket {}", this.bucketName);
+        this.cluster = CouchbaseCluster.create(new ArrayList<>(this.nodes));
 
-            this.cluster = CouchbaseCluster.create(new ArrayList<>(this.nodes));
-
-            this.bucket = this.cluster.openBucket(this.bucketName, this.password, this.timeout, TimeUnit.SECONDS);
-
-            logger.info("Connected to Couchbase bucket {}.", this.bucketName);
-
-            if (this.views != null) {
-                doEnsureIndexes(this.designDocument, this.views);
-            }
-        } catch (final Exception e) {
-            throw new RuntimeException("Failed to connect to Couchbase bucket", e);
-        }
+        this.designDocument = documentName;
+        this.views = views;
     }
 
     /**
-     * Inverse of initialize, shuts down the client, cancelling connection
+     * Instantiates a new Couchbase client factory.
+     *
+     * @param nodes          the nodes
+     * @param bucketName     the bucket name
+     * @param bucketPassword the bucket password
+     */
+    public CouchbaseClientFactory(final Set<String> nodes, final String bucketName, final String bucketPassword) {
+        this(nodes, bucketName, bucketPassword, DEFAULT_TIMEOUT, null, null);
+    }
+
+    /**
+     * Authenticate.
+     *
+     * @param uid the uid
+     * @param psw the psw
+     */
+    public void authenticate(final String uid, final String psw) {
+        this.cluster = this.cluster.authenticate(uid, psw);
+    }
+
+    public Cluster getCluster() {
+        return this.cluster;
+    }
+
+    /**
+     * Inverse of connectBucket, shuts down the client, cancelling connection
      * task if not completed.
      */
     public void shutdown() {
@@ -89,59 +111,33 @@ public class CouchbaseClientFactory {
     }
 
     /**
-     * Retrieve the Couchbase bucket.
+     * Retrieve the Couchbase getBucket.
      *
-     * @return the bucket.
+     * @return the getBucket.
      */
-    public Bucket bucket() {
-        if (this.bucket != null) {
-            return this.bucket;
+    public Bucket getBucket() {
+        if (this.bucket == null) {
+            if (StringUtils.isBlank(this.bucketName)) {
+                throw new IllegalArgumentException("Bucket name cannot be blank");
+            }
+
+            try {
+                LOGGER.debug("Trying to connect to couchbase getBucket [{}]", this.bucketName);
+                this.bucket = this.cluster.openBucket(this.bucketName, this.bucketPassword, this.timeout, TimeUnit.SECONDS);
+                LOGGER.info("Connected to Couchbase getBucket [{}]", this.bucketName);
+                if (this.views != null && this.designDocument != null) {
+                    LOGGER.debug("Ensure that indexes exist in getBucket [{}]", this.bucket.name());
+                    final DesignDocument newDocument = DesignDocument.create(this.designDocument, views);
+                    if (!newDocument.equals(this.bucket.bucketManager().getDesignDocument(this.designDocument))) {
+                        LOGGER.warn("Missing indexes in getBucket [{}] for document [{}]", this.bucket.name(), this.designDocument);
+                        this.bucket.bucketManager().upsertDesignDocument(newDocument);
+                    }
+                }
+            } catch (final Exception e) {
+                throw new IllegalArgumentException("Failed to connect to Couchbase getBucket", e);
+            }
         }
-        throw new RuntimeException("Connection to bucket " + this.bucketName + " not initialized yet.");
-    }
-
-
-    /**
-     * Register indexes to ensure in the bucket when the client is initialized.
-     *
-     * @param documentName name of the Couchbase design document.
-     * @param views the list of Couchbase views (i.e. indexes) to create in the document.
-     */
-    public void ensureIndexes(final String documentName, final List<View> views) {
-        this.designDocument = documentName;
-        this.views = views;
-    }
-
-
-    /**
-     * Ensures that all views exists in the database.
-     *
-     * @param documentName the name of the design document.
-     * @param views the views to ensure exists in the database.
-     */
-    private void doEnsureIndexes(final String documentName, final List<View> views) {
-        logger.debug("Ensure that indexes exist in bucket {}.", this.bucket.name());
-        final DesignDocument newDocument = DesignDocument.create(documentName, views);
-        if (!newDocument.equals(this.bucket.bucketManager().getDesignDocument(documentName))) {
-            logger.warn("Missing indexes in bucket {} for document {}, creating new.", this.bucket.name(), documentName);
-            this.bucket.bucketManager().upsertDesignDocument(newDocument);
-        }
-    }
-
-    public void setTimeout(final long timeout) {
-        this.timeout = timeout;
-    }
-
-    public void setNodes(final Set<String> nodes) {
-        this.nodes = nodes;
-    }
-
-    public void setBucketName(final String bucket) {
-        this.bucketName = bucket;
-    }
-
-    public void setPassword(final String password) {
-        this.password = password;
+        return this.bucket;
     }
 }
 

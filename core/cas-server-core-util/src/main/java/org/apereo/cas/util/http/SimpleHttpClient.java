@@ -1,6 +1,5 @@
 package org.apereo.cas.util.http;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -27,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of CAS {@link HttpClient}
@@ -49,17 +49,17 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
     /**
      * the acceptable codes supported by this client.
      */
-    private List<Integer> acceptableCodes;
+    private final List<Integer> acceptableCodes;
 
     /**
      * the HTTP client for this client.
      */
-    private CloseableHttpClient httpClient;
+    private final transient CloseableHttpClient httpClient;
 
     /**
      * the request executor service for this client.
      */
-    private FutureRequestExecutionService requestExecutorService;
+    private final FutureRequestExecutionService requestExecutorService;
 
     /**
      * Instantiates a new Simple HTTP client, based on the provided inputs.
@@ -70,8 +70,7 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
      */
     SimpleHttpClient(final List<Integer> acceptableCodes, final CloseableHttpClient httpClient,
                      final FutureRequestExecutionService requestExecutorService) {
-        Collections.sort(acceptableCodes);
-        this.acceptableCodes = ImmutableList.copyOf(acceptableCodes);
+        this.acceptableCodes = acceptableCodes.stream().sorted().collect(Collectors.toList());
         this.httpClient = httpClient;
         this.requestExecutorService = requestExecutorService;
     }
@@ -88,17 +87,17 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
             request.setEntity(entity);
 
             final ResponseHandler<Boolean> handler = response -> response.getStatusLine().getStatusCode() == HttpStatus.SC_OK;
-            final HttpRequestFutureTask<Boolean> task = this.requestExecutorService.execute(request,
-                    HttpClientContext.create(), handler);
+            LOGGER.debug("Created HTTP post message payload [{}]", request);
+            final HttpRequestFutureTask<Boolean> task = this.requestExecutorService.execute(request, HttpClientContext.create(), handler);
             if (message.isAsynchronous()) {
                 return true;
             }
             return task.get();
         } catch (final RejectedExecutionException e) {
-            LOGGER.warn(e.getMessage(), e);
+            LOGGER.warn("Execution rejected", e);
             return false;
         } catch (final Exception e) {
-            LOGGER.debug(e.getMessage(), e);
+            LOGGER.debug("Unable to send message", e);
             return false;
         }
     }
@@ -114,7 +113,7 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
 
             for (final int acceptableCode : this.acceptableCodes) {
                 if (responseCode == acceptableCode) {
-                    LOGGER.debug("Response code received from server matched {}.", responseCode);
+                    LOGGER.debug("Response code received from server matched [{}].", responseCode);
                     entity = response.getEntity();
                     final HttpMessage msg = new HttpMessage(url, IOUtils.toString(entity.getContent(), StandardCharsets.UTF_8));
                     msg.setContentType(entity.getContentType().getValue());
@@ -122,15 +121,15 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
                     return msg;
                 }
             }
-            LOGGER.warn("Response code from {}} did not match any of the acceptable response codes. Code returned {}",
-                    url, responseCode);
+            LOGGER.warn("Response code [{}] from [{}] did not match any of the acceptable response codes.",
+                    responseCode, url);
             if (responseCode == HttpStatus.SC_INTERNAL_SERVER_ERROR) {
                 final String value = response.getStatusLine().getReasonPhrase();
-                LOGGER.error("There was an error contacting the endpoint: {}; The error:\n{}", url.toExternalForm(),
+                LOGGER.error("There was an error contacting the endpoint: [{}]; The error:\n[{}]", url.toExternalForm(),
                         value);
             }
         } catch (final Exception e) {
-            LOGGER.error(e.getMessage(), e);
+            LOGGER.error("Unable to send message", e);
         } finally {
             EntityUtils.consumeQuietly(entity);
         }
@@ -143,7 +142,7 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
             final URL u = new URL(url);
             return isValidEndPoint(u);
         } catch (final MalformedURLException e) {
-            LOGGER.error(e.getMessage(), e);
+            LOGGER.error("Unable to build URL", e);
             return false;
         }
     }
@@ -159,15 +158,15 @@ public class SimpleHttpClient implements HttpClient, Serializable, DisposableBea
 
             final int idx = Collections.binarySearch(this.acceptableCodes, responseCode);
             if (idx >= 0) {
-                LOGGER.debug("Response code from server matched {}.", responseCode);
+                LOGGER.debug("Response code from server matched [{}].", responseCode);
                 return true;
             }
 
-            LOGGER.debug("Response code did not match any of the acceptable response codes. Code returned was {}", responseCode);
+            LOGGER.debug("Response code did not match any of the acceptable response codes. Code returned was [{}]", responseCode);
 
             if (responseCode == HttpStatus.SC_INTERNAL_SERVER_ERROR) {
                 final String value = response.getStatusLine().getReasonPhrase();
-                LOGGER.error("There was an error contacting the endpoint: {}; The error was:\n{}", url.toExternalForm(), value);
+                LOGGER.error("There was an error contacting the endpoint: [{}]; The error was:\n[{}]", url.toExternalForm(), value);
             }
 
             entity = response.getEntity();

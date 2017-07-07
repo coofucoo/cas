@@ -1,7 +1,5 @@
 package org.apereo.cas.config;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import net.shibboleth.ext.spring.util.SpringSupport;
 import net.shibboleth.idp.attribute.resolver.AttributeDefinition;
 import net.shibboleth.idp.attribute.resolver.DataConnector;
@@ -9,6 +7,7 @@ import net.shibboleth.idp.attribute.resolver.impl.AttributeResolverImpl;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.configuration.support.Beans;
 import org.apereo.cas.persondir.support.ShibbolethPersonAttributeDao;
+import org.apereo.cas.util.CollectionUtils;
 import org.apereo.services.persondir.IPersonAttributeDao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +23,11 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 
@@ -52,15 +53,15 @@ public class ShibbolethAttributeResolverConfiguration {
     @Autowired
     private CasConfigurationProperties casProperties;
 
-    @Bean(name = {"shibbolethPersonAttributeDao", "attributeRepository"})
-    public IPersonAttributeDao shibbolethPersonAttributeDao() {
+    @Bean
+    public IPersonAttributeDao attributeRepository() {
         try {
             final PropertyPlaceholderConfigurer cfg = new PropertyPlaceholderConfigurer();
             final Map<String, Object> result = new HashMap<>();
             environment.getPropertySources().forEach(s -> {
                 if (s instanceof EnumerablePropertySource<?>) {
                     final EnumerablePropertySource<?> ps = (EnumerablePropertySource<?>) s;
-                    Lists.newArrayList(ps.getPropertyNames()).forEach(key -> result.put(key, ps.getProperty(key)));
+                    Arrays.asList(ps.getPropertyNames()).forEach(key -> result.put(key, ps.getProperty(key)));
                 }
             });
             final Properties p = new Properties();
@@ -71,14 +72,14 @@ public class ShibbolethAttributeResolverConfiguration {
             final ApplicationContext tempApplicationContext = SpringSupport.newContext(
                     getClass().getName(),
                     casProperties.getShibAttributeResolver().getResources(),
-                    Collections.singletonList(cfg),
+                    CollectionUtils.wrap(cfg),
                     Collections.emptyList(),
                     Collections.emptyList(),
                     this.applicationContext
             );
 
-            final Collection<DataConnector> connectors =
-                    Sets.newHashSet(BeanFactoryUtils.beansOfTypeIncludingAncestors(tempApplicationContext, DataConnector.class).values());
+            final Collection<DataConnector> values = BeanFactoryUtils.beansOfTypeIncludingAncestors(tempApplicationContext, DataConnector.class).values();
+            final Collection<DataConnector> connectors = new HashSet<>(values);
             final AttributeResolverImpl impl = new AttributeResolverImpl();
             impl.setId(getClass().getSimpleName());
             impl.setApplicationContext(tempApplicationContext);

@@ -1,11 +1,13 @@
 package org.apereo.cas.configuration.model.webapp.mgmt;
 
-import com.google.common.collect.Lists;
+import org.apereo.cas.configuration.model.support.ldap.AbstractLdapProperties;
 import org.apereo.cas.configuration.model.support.ldap.LdapAuthorizationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -15,15 +17,20 @@ import java.util.List;
  * @since 5.0.0
  */
 public class ManagementWebappProperties {
-    private List<String> adminRoles = Lists.newArrayList("ROLE_ADMIN");
+    private List<String> adminRoles = Arrays.asList("ROLE_ADMIN");
     private String serverName = "https://localhost:8443";
     private String defaultLocale = "en";
-    private List<String> authzAttributes = Lists.newArrayList();
-
-    @NestedConfigurationProperty
-    private LdapAuthorizationProperties ldapAuthz = new LdapAuthorizationProperties();
-
+    private List<String> authzAttributes = new ArrayList<>();
+    private Ldap ldap = new Ldap();
     private Resource userPropertiesFile = new ClassPathResource("user-details.properties");
+
+    public Ldap getLdap() {
+        return ldap;
+    }
+
+    public void setLdap(final Ldap ldap) {
+        this.ldap = ldap;
+    }
 
     public List<String> getAdminRoles() {
         return adminRoles;
@@ -49,14 +56,6 @@ public class ManagementWebappProperties {
         this.serverName = serverName;
     }
 
-    public LdapAuthorizationProperties getLdapAuthz() {
-        return ldapAuthz;
-    }
-
-    public void setLdapAuthz(final LdapAuthorizationProperties ldapAuthz) {
-        this.ldapAuthz = ldapAuthz;
-    }
-
     public List<String> getAuthzAttributes() {
         return authzAttributes;
     }
@@ -71,6 +70,20 @@ public class ManagementWebappProperties {
 
     public void setDefaultLocale(final String defaultLocale) {
         this.defaultLocale = defaultLocale;
+    }
+
+    public static class Ldap extends AbstractLdapProperties {
+        private static final long serialVersionUID = -8129280052479631538L;
+        @NestedConfigurationProperty
+        private LdapAuthorizationProperties ldapAuthz = new LdapAuthorizationProperties();
+
+        public LdapAuthorizationProperties getLdapAuthz() {
+            return ldapAuthz;
+        }
+
+        public void setLdapAuthz(final LdapAuthorizationProperties ldapAuthz) {
+            this.ldapAuthz = ldapAuthz;
+        }
     }
 }
 

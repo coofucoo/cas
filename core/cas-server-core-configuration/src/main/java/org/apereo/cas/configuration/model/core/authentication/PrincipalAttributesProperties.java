@@ -1,5 +1,6 @@
 package org.apereo.cas.configuration.model.core.authentication;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.configuration.model.support.jpa.AbstractJpaProperties;
 import org.apereo.cas.configuration.model.support.ldap.AbstractLdapProperties;
 import org.apereo.cas.configuration.support.AbstractConfigProperties;
@@ -24,14 +25,48 @@ public class PrincipalAttributesProperties {
     private int expireInMinutes = 30;
     private int maximumCacheSize = 10000;
     private String merger = "REPLACE";
-    
-    private Set<String> defaultAttributesToRelease = new HashSet<>();
-    private Map<String, String> attributes = new HashMap();
 
+    private Set<String> defaultAttributesToRelease = new HashSet<>();
     private List<Jdbc> jdbc = new ArrayList<>();
+    private List<Rest> rest = new ArrayList<>();
     private List<Groovy> groovy = new ArrayList();
     private List<Ldap> ldap = new ArrayList();
     private List<Json> json = new ArrayList();
+    private List<Script> script = new ArrayList<>();
+    private Stub stub = new Stub();
+    private Grouper grouper = new Grouper();
+
+    public List<Script> getScript() {
+        return script;
+    }
+
+    public void setScript(final List<Script> script) {
+        this.script = script;
+    }
+
+    public List<Rest> getRest() {
+        return rest;
+    }
+
+    public void setRest(final List<Rest> rest) {
+        this.rest = rest;
+    }
+
+    public Stub getStub() {
+        return stub;
+    }
+
+    public void setStub(final Stub stub) {
+        this.stub = stub;
+    }
+
+    public Grouper getGrouper() {
+        return grouper;
+    }
+
+    public void setGrouper(final Grouper grouper) {
+        this.grouper = grouper;
+    }
 
     public List<Groovy> getGroovy() {
         return groovy;
@@ -88,15 +123,7 @@ public class PrincipalAttributesProperties {
     public void setJdbc(final List<Jdbc> jdbc) {
         this.jdbc = jdbc;
     }
-
-    public Map<String, String> getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(final Map<String, String> attributes) {
-        this.attributes = attributes;
-    }
-
+    
     public Set<String> getDefaultAttributesToRelease() {
         return defaultAttributesToRelease;
     }
@@ -105,15 +132,17 @@ public class PrincipalAttributesProperties {
         this.defaultAttributesToRelease = defaultAttributesToRelease;
     }
 
-    public static class Jdbc extends AbstractJpaProperties {
-        private String sql;
-        private boolean singleRow = true;
-        private boolean requireAllAttributes = true;
-        private CaseCanonicalizationMode caseCanonicalization = CaseCanonicalizationMode.NONE;
-        private QueryType queryType = QueryType.AND;
-        private Map<String, String> columnMappings = new HashMap<>();
-        private List<String> username = new ArrayList<>();
+    public static class Grouper {
         private int order;
+        private boolean enabled;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(final boolean enabled) {
+            this.enabled = enabled;
+        }
 
         public int getOrder() {
             return order;
@@ -123,13 +152,111 @@ public class PrincipalAttributesProperties {
             this.order = order;
         }
 
+    }
+
+    public static class Stub {
+        private Map<String, String> attributes = new HashMap();
+
+        public Map<String, String> getAttributes() {
+            return attributes;
+        }
+
+        public void setAttributes(final Map<String, String> attributes) {
+            this.attributes = attributes;
+        }
+    }
+
+    public static class Rest {
+        private int order;
+        private String url;
+        private String method;
+        private boolean caseInsensitive;
+        private String basicAuthUsername;
+        private String basicAuthPassword;
+
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(final String url) {
+            this.url = url;
+        }
+
+        public String getMethod() {
+            return method;
+        }
+
+        public void setMethod(final String method) {
+            this.method = method;
+        }
+
+        public boolean isCaseInsensitive() {
+            return caseInsensitive;
+        }
+
+        public void setCaseInsensitive(final boolean caseInsensitive) {
+            this.caseInsensitive = caseInsensitive;
+        }
+
+        public String getBasicAuthUsername() {
+            return basicAuthUsername;
+        }
+
+        public void setBasicAuthUsername(final String basicAuthUsername) {
+            this.basicAuthUsername = basicAuthUsername;
+        }
+
+        public String getBasicAuthPassword() {
+            return basicAuthPassword;
+        }
+
+        public void setBasicAuthPassword(final String basicAuthPassword) {
+            this.basicAuthPassword = basicAuthPassword;
+        }
+    }
+    
+    public static class Jdbc extends AbstractJpaProperties {
+        private static final long serialVersionUID = 6915428382578138387L;
+        private String sql;
+        private boolean singleRow = true;
+        private boolean requireAllAttributes = true;
+        private CaseCanonicalizationMode caseCanonicalization = CaseCanonicalizationMode.NONE;
+        private QueryType queryType = QueryType.AND;
+        private Map<String, String> columnMappings = new HashMap<>();
+        private List<String> username = new ArrayList<>();
+        private int order;
+        private Map<String, String> attributes = new HashMap();
+
+        public Map<String, String> getAttributes() {
+            return attributes;
+        }
+
+        public void setAttributes(final Map<String, String> attributes) {
+            this.attributes = attributes;
+        }
+        
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
 
         public String getSql() {
             return sql;
         }
 
         public void setSql(final String sql) {
-            this.sql = sql;
+            this.sql = StringUtils.replace(sql, "{user}", "?");
         }
 
         public List<String> getUsername() {
@@ -182,6 +309,7 @@ public class PrincipalAttributesProperties {
     }
 
     public static class Json extends AbstractConfigProperties {
+        private static final long serialVersionUID = -6573755681498251678L;
         private int order;
 
         public int getOrder() {
@@ -193,7 +321,8 @@ public class PrincipalAttributesProperties {
         }
     }
 
-    public static class Groovy extends AbstractConfigProperties {
+    public static class Script extends AbstractConfigProperties {
+        private static final long serialVersionUID = 4221139939506528713L;
         private boolean caseInsensitive;
         private int order;
 
@@ -214,12 +343,44 @@ public class PrincipalAttributesProperties {
         }
     }
     
+    public static class Groovy extends AbstractConfigProperties {
+        private static final long serialVersionUID = 7901595963842506684L;
+        private boolean caseInsensitive;
+        private int order;
+
+        public int getOrder() {
+            return order;
+        }
+
+        public void setOrder(final int order) {
+            this.order = order;
+        }
+
+        public boolean isCaseInsensitive() {
+            return caseInsensitive;
+        }
+
+        public void setCaseInsensitive(final boolean caseInsensitive) {
+            this.caseInsensitive = caseInsensitive;
+        }
+    }
+
     public static class Ldap extends AbstractLdapProperties {
+        private static final long serialVersionUID = 5760065368731012063L;
         private boolean subtreeSearch = true;
         private String baseDn;
         private String userFilter;
         private int order;
+        private Map<String, String> attributes = new HashMap();
 
+        public Map<String, String> getAttributes() {
+            return attributes;
+        }
+
+        public void setAttributes(final Map<String, String> attributes) {
+            this.attributes = attributes;
+        }
+        
         public int getOrder() {
             return order;
         }

@@ -31,6 +31,7 @@ import java.util.Collections;
 public class MongoDbCloudConfigBootstrapConfiguration extends AbstractMongoConfiguration {
     private static final int TIMEOUT = 5000;
     private static final int DEFAULT_PORT = 27017;
+    
     @Autowired
     private ConfigurableEnvironment environment;
 
@@ -53,12 +54,13 @@ public class MongoDbCloudConfigBootstrapConfiguration extends AbstractMongoConfi
 
     @Override
     public Mongo mongo() throws Exception {
+        final MongoClientURI mongoClientURI = mongoClientUri();
         final MongoCredential credential = MongoCredential.createCredential(
-                mongoClientUri().getUsername(),
+                mongoClientURI.getUsername(),
                 getDatabaseName(),
-                mongoClientUri().getPassword());
+                mongoClientURI.getPassword());
 
-        final String hostUri = mongoClientUri().getHosts().get(0);
+        final String hostUri = mongoClientURI.getHosts().get(0);
         final String[] host = hostUri.split(":");
         return new MongoClient(new ServerAddress(
                 host[0], host.length > 1 ? Integer.parseInt(host[1]) : DEFAULT_PORT),

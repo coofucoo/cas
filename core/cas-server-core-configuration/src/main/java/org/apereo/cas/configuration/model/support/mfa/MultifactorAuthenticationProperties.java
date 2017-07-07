@@ -2,12 +2,15 @@ package org.apereo.cas.configuration.model.support.mfa;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.cas.configuration.model.support.jpa.AbstractJpaProperties;
-import org.apereo.cas.configuration.model.support.mongo.AbstractMongoProperties;
+import org.apereo.cas.configuration.model.support.mongo.AbstractMongoClientProperties;
+import org.apereo.cas.configuration.support.AbstractConfigProperties;
 import org.apereo.cas.configuration.support.Beans;
+import org.springframework.core.io.Resource;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,20 +28,79 @@ public class MultifactorAuthenticationProperties implements Serializable {
 
     private String restEndpoint;
 
+    private Resource groovyScript;
+
+    private Resource globalPrincipalAttributePredicate;
     private String globalPrincipalAttributeNameTriggers;
     private String globalPrincipalAttributeValueRegex;
+
+    private String globalAuthenticationAttributeNameTriggers;
+    private String globalAuthenticationAttributeValueRegex;
 
     private String contentType = "application/cas";
     private String globalProviderId;
 
     private String grouperGroupField;
 
+    private Resource providerSelectorGroovyScript;
+
+    private U2F u2f = new U2F();
+    private Azure azure = new Azure();
     private Trusted trusted = new Trusted();
     private YubiKey yubikey = new YubiKey();
     private Radius radius = new Radius();
     private GAuth gauth = new GAuth();
     private List<Duo> duo = new ArrayList<>();
     private Authy authy = new Authy();
+    private Swivel swivel = new Swivel();
+
+    public Resource getGlobalPrincipalAttributePredicate() {
+        return globalPrincipalAttributePredicate;
+    }
+
+    public void setGlobalPrincipalAttributePredicate(final Resource globalPrincipalAttributePredicate) {
+        this.globalPrincipalAttributePredicate = globalPrincipalAttributePredicate;
+    }
+
+    public Resource getProviderSelectorGroovyScript() {
+        return providerSelectorGroovyScript;
+    }
+
+    public void setProviderSelectorGroovyScript(final Resource providerSelectorGroovyScript) {
+        this.providerSelectorGroovyScript = providerSelectorGroovyScript;
+    }
+
+    public Resource getGroovyScript() {
+        return groovyScript;
+    }
+
+    public void setGroovyScript(final Resource groovyScript) {
+        this.groovyScript = groovyScript;
+    }
+
+    public Swivel getSwivel() {
+        return swivel;
+    }
+
+    public void setSwivel(final Swivel swivel) {
+        this.swivel = swivel;
+    }
+
+    public U2F getU2f() {
+        return u2f;
+    }
+
+    public void setU2f(final U2F u2f) {
+        this.u2f = u2f;
+    }
+
+    public Azure getAzure() {
+        return azure;
+    }
+
+    public void setAzure(final Azure azure) {
+        this.azure = azure;
+    }
 
     public Trusted getTrusted() {
         return trusted;
@@ -70,6 +132,22 @@ public class MultifactorAuthenticationProperties implements Serializable {
 
     public void setRequestParameter(final String requestParameter) {
         this.requestParameter = requestParameter;
+    }
+
+    public String getGlobalAuthenticationAttributeNameTriggers() {
+        return globalAuthenticationAttributeNameTriggers;
+    }
+
+    public void setGlobalAuthenticationAttributeNameTriggers(final String globalAuthenticationAttributeNameTriggers) {
+        this.globalAuthenticationAttributeNameTriggers = globalAuthenticationAttributeNameTriggers;
+    }
+
+    public String getGlobalAuthenticationAttributeValueRegex() {
+        return globalAuthenticationAttributeValueRegex;
+    }
+
+    public void setGlobalAuthenticationAttributeValueRegex(final String globalAuthenticationAttributeValueRegex) {
+        this.globalAuthenticationAttributeValueRegex = globalAuthenticationAttributeValueRegex;
     }
 
     public String getGlobalPrincipalAttributeValueRegex() {
@@ -267,13 +345,146 @@ public class MultifactorAuthenticationProperties implements Serializable {
         }
     }
 
+    public static class U2F extends BaseProvider {
+        private static final long serialVersionUID = 6151350313777066398L;
+
+        private Memory memory = new Memory();
+        private Jpa jpa = new Jpa();
+
+        private long expireRegistrations = 30;
+        private TimeUnit expireRegistrationsTimeUnit = TimeUnit.SECONDS;
+
+        private long expireDevices = 30;
+        private TimeUnit expireDevicesTimeUnit = TimeUnit.DAYS;
+
+        private Json json = new Json();
+        private Cleaner cleaner = new Cleaner();
+
+        public U2F() {
+            setId("mfa-u2f");
+        }
+
+        public Cleaner getCleaner() {
+            return cleaner;
+        }
+
+        public void setCleaner(final Cleaner cleaner) {
+            this.cleaner = cleaner;
+        }
+
+        public Json getJson() {
+            return json;
+        }
+
+        public void setJson(final Json json) {
+            this.json = json;
+        }
+
+        public long getExpireRegistrations() {
+            return expireRegistrations;
+        }
+
+        public void setExpireRegistrations(final long expireRegistrations) {
+            this.expireRegistrations = expireRegistrations;
+        }
+
+        public TimeUnit getExpireRegistrationsTimeUnit() {
+            return expireRegistrationsTimeUnit;
+        }
+
+        public void setExpireRegistrationsTimeUnit(final TimeUnit expireRegistrationsTimeUnit) {
+            this.expireRegistrationsTimeUnit = expireRegistrationsTimeUnit;
+        }
+
+        public long getExpireDevices() {
+            return expireDevices;
+        }
+
+        public void setExpireDevices(final long expireDevices) {
+            this.expireDevices = expireDevices;
+        }
+
+        public TimeUnit getExpireDevicesTimeUnit() {
+            return expireDevicesTimeUnit;
+        }
+
+        public void setExpireDevicesTimeUnit(final TimeUnit expireDevicesTimeUnit) {
+            this.expireDevicesTimeUnit = expireDevicesTimeUnit;
+        }
+
+        public static class Json extends AbstractConfigProperties {
+            private static final long serialVersionUID = -6883660787308509919L;
+        }
+
+        public Jpa getJpa() {
+            return jpa;
+        }
+
+        public void setJpa(final Jpa jpa) {
+            this.jpa = jpa;
+        }
+
+        public Memory getMemory() {
+            return memory;
+        }
+
+        public void setMemory(final Memory memory) {
+            this.memory = memory;
+        }
+
+        public static class Memory implements Serializable {
+
+            private static final long serialVersionUID = 771866433203773277L;
+        }
+
+        public static class Jpa extends AbstractJpaProperties {
+            private static final long serialVersionUID = -4334840263678287815L;
+        }
+
+        public static class Cleaner {
+            private boolean enabled = true;
+            private String startDelay = "PT10S";
+            private String repeatInterval = "PT1M";
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(final boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public long getStartDelay() {
+                return Beans.newDuration(startDelay).toMillis();
+            }
+
+            public void setStartDelay(final String startDelay) {
+                this.startDelay = startDelay;
+            }
+
+            public long getRepeatInterval() {
+                return Beans.newDuration(repeatInterval).toMillis();
+            }
+
+            public void setRepeatInterval(final String repeatInterval) {
+                this.repeatInterval = repeatInterval;
+            }
+        }
+    }
+
     public static class YubiKey extends BaseProvider {
         private static final long serialVersionUID = 9138057706201201089L;
         private Integer clientId;
         private String secretKey = StringUtils.EMPTY;
 
+        private Resource jsonFile;
+        private Map<String, String> allowedDevices;
+
         private List<String> apiUrls = new ArrayList<>();
         private boolean trustedDeviceEnabled;
+
+        private Jpa jpa = new Jpa();
+        private Mongodb mongodb = new Mongodb();
 
         public YubiKey() {
             setId("mfa-yubikey");
@@ -303,13 +514,56 @@ public class MultifactorAuthenticationProperties implements Serializable {
             this.secretKey = secretKey;
         }
 
-
         public List<String> getApiUrls() {
             return apiUrls;
         }
 
         public void setApiUrls(final List<String> apiUrls) {
             this.apiUrls = apiUrls;
+        }
+
+        public Resource getJsonFile() {
+            return jsonFile;
+        }
+
+        public void setJsonFile(final Resource jsonFile) {
+            this.jsonFile = jsonFile;
+        }
+
+        public Map<String, String> getAllowedDevices() {
+            return allowedDevices;
+        }
+
+        public void setAllowedDevices(final Map<String, String> allowedDevices) {
+            this.allowedDevices = allowedDevices;
+        }
+
+        public Jpa getJpa() {
+            return jpa;
+        }
+
+        public void setJpa(final Jpa jpa) {
+            this.jpa = jpa;
+        }
+
+        public Mongodb getMongodb() {
+            return mongodb;
+        }
+
+        public void setMongodb(final Mongodb mongodb) {
+            this.mongodb = mongodb;
+        }
+
+        public static class Jpa extends AbstractJpaProperties {
+            private static final long serialVersionUID = -4420099402220880361L;
+        }
+
+        public static class Mongodb extends AbstractMongoClientProperties {
+            private static final long serialVersionUID = 6876845341227039713L;
+
+            public Mongodb() {
+                setCollection("MongoDbYubiKeyRepository");
+            }
         }
     }
 
@@ -368,7 +622,8 @@ public class MultifactorAuthenticationProperties implements Serializable {
             this.client = client;
         }
 
-        public static class Server {
+        public static class Server implements Serializable {
+            private static final long serialVersionUID = -3911282132573730184L;
             private String protocol = "EAP_MSCHAPv2";
             private int retries = 3;
             private String nasIdentifier;
@@ -454,7 +709,8 @@ public class MultifactorAuthenticationProperties implements Serializable {
 
         }
 
-        public static class Client {
+        public static class Client implements Serializable {
+            private static final long serialVersionUID = -7961769318651312854L;
             private String inetAddress = "localhost";
             private String sharedSecret = "N0Sh@ar3d$ecReT";
             private int socketTimeout;
@@ -509,6 +765,7 @@ public class MultifactorAuthenticationProperties implements Serializable {
         private String duoSecretKey;
         private String duoApplicationKey;
         private String duoApiHost;
+
         private boolean trustedDeviceEnabled;
 
         public Duo() {
@@ -562,13 +819,20 @@ public class MultifactorAuthenticationProperties implements Serializable {
         private String apiUrl;
         private String phoneAttribute = "phone";
         private String mailAttribute = "mail";
+        private String countryCode = "1";
         private boolean forceVerification = true;
         private boolean trustedDeviceEnabled;
 
-
-
         public Authy() {
             setId("mfa-authy");
+        }
+
+        public String getCountryCode() {
+            return countryCode;
+        }
+
+        public void setCountryCode(final String countryCode) {
+            this.countryCode = countryCode;
         }
 
         public boolean isTrustedDeviceEnabled() {
@@ -732,7 +996,8 @@ public class MultifactorAuthenticationProperties implements Serializable {
             this.cleaner = cleaner;
         }
 
-        public static class Rest {
+        public static class Rest implements Serializable {
+            private static final long serialVersionUID = 3659099897056632608L;
             private String endpoint;
 
             public String getEndpoint() {
@@ -745,9 +1010,12 @@ public class MultifactorAuthenticationProperties implements Serializable {
         }
 
         public static class Jpa extends AbstractJpaProperties {
+            private static final long serialVersionUID = -8329950619696176349L;
         }
 
-        public static class Mongodb extends AbstractMongoProperties {
+        public static class Mongodb extends AbstractMongoClientProperties {
+            private static final long serialVersionUID = 4940497540189318943L;
+
             public Mongodb() {
                 setCollection("MongoDbCasTrustedAuthnMfaRepository");
             }
@@ -785,6 +1053,74 @@ public class MultifactorAuthenticationProperties implements Serializable {
         }
     }
 
+    public static class Azure extends BaseProvider {
+        private static final long serialVersionUID = 6726032660671158922L;
+
+        /**
+         * The enum Authentication modes.
+         */
+        public enum AuthenticationModes {
+            /**
+             * Ask the user to only press the pound sign.
+             */
+            POUND,
+            /**
+             * Ask the user to enter pin code shown on the screen.
+             */
+            PIN
+        }
+
+        private String phoneAttributeName = "phone";
+        private String configDir;
+        private String privateKeyPassword;
+        private AuthenticationModes mode = AuthenticationModes.POUND;
+        private boolean allowInternationalCalls;
+
+        public Azure() {
+            setId("mfa-azure");
+        }
+
+        public String getPhoneAttributeName() {
+            return phoneAttributeName;
+        }
+
+        public void setPhoneAttributeName(final String phoneAttributeName) {
+            this.phoneAttributeName = phoneAttributeName;
+        }
+
+        public AuthenticationModes getMode() {
+            return mode;
+        }
+
+        public void setMode(final AuthenticationModes mode) {
+            this.mode = mode;
+        }
+
+        public boolean isAllowInternationalCalls() {
+            return allowInternationalCalls;
+        }
+
+        public void setAllowInternationalCalls(final boolean allowInternationalCalls) {
+            this.allowInternationalCalls = allowInternationalCalls;
+        }
+
+        public String getConfigDir() {
+            return configDir;
+        }
+
+        public void setConfigDir(final String configDir) {
+            this.configDir = configDir;
+        }
+
+        public String getPrivateKeyPassword() {
+            return privateKeyPassword;
+        }
+
+        public void setPrivateKeyPassword(final String privateKeyPassword) {
+            this.privateKeyPassword = privateKeyPassword;
+        }
+    }
+
     public static class GAuth extends BaseProvider {
         private static final long serialVersionUID = -7401748853833491119L;
         private String issuer = "CASIssuer";
@@ -795,11 +1131,38 @@ public class MultifactorAuthenticationProperties implements Serializable {
         private int windowSize = 3;
 
         private Mongodb mongodb = new Mongodb();
-
         private Jpa jpa = new Jpa();
+        private Json json = new Json();
+        private Rest rest = new Rest();
+
+        private Cleaner cleaner = new Cleaner();
 
         public GAuth() {
             setId("mfa-gauth");
+        }
+
+        public Rest getRest() {
+            return rest;
+        }
+
+        public void setRest(final Rest rest) {
+            this.rest = rest;
+        }
+
+        public Cleaner getCleaner() {
+            return cleaner;
+        }
+
+        public void setCleaner(final Cleaner cleaner) {
+            this.cleaner = cleaner;
+        }
+
+        public Json getJson() {
+            return json;
+        }
+
+        public void setJson(final Json json) {
+            this.json = json;
         }
 
         public Mongodb getMongodb() {
@@ -858,13 +1221,43 @@ public class MultifactorAuthenticationProperties implements Serializable {
             this.label = label;
         }
 
-        public static class Mongodb extends AbstractMongoProperties {
-            public Mongodb() {
-                setCollection("MongoDbGoogleAuthenticatorRepository");
+        public static class Json extends AbstractConfigProperties {
+            private static final long serialVersionUID = 4303355159388663888L;
+        }
+
+        public static class Rest implements Serializable {
+            private static final long serialVersionUID = 4518622579150572559L;
+            private String endpointUrl;
+
+            public String getEndpointUrl() {
+                return endpointUrl;
+            }
+
+            public void setEndpointUrl(final String endpointUrl) {
+                this.endpointUrl = endpointUrl;
             }
         }
 
-        public static class Jpa {
+        public static class Mongodb extends AbstractMongoClientProperties {
+            private static final long serialVersionUID = -200556119517414696L;
+            private String tokenCollection;
+
+            public Mongodb() {
+                setCollection("MongoDbGoogleAuthenticatorRepository");
+                setTokenCollection("MongoDbGoogleAuthenticatorTokenRepository");
+            }
+
+            public String getTokenCollection() {
+                return tokenCollection;
+            }
+
+            public void setTokenCollection(final String tokenCollection) {
+                this.tokenCollection = tokenCollection;
+            }
+        }
+
+        public static class Jpa implements Serializable {
+            private static final long serialVersionUID = -2689797889546802618L;
             private Database database = new Database();
 
             public Database getDatabase() {
@@ -876,10 +1269,88 @@ public class MultifactorAuthenticationProperties implements Serializable {
             }
 
             public static class Database extends AbstractJpaProperties {
+                private static final long serialVersionUID = -7446381055350251885L;
+
                 public Database() {
                     super.setUrl("jdbc:hsqldb:mem:cas-gauth");
                 }
             }
+        }
+
+        public static class Cleaner implements Serializable {
+            private static final long serialVersionUID = -6036042153454544990L;
+            private boolean enabled = true;
+            private String startDelay = "PT1M";
+            private String repeatInterval = "PT1M";
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(final boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public String getStartDelay() {
+                return startDelay;
+            }
+
+            public void setStartDelay(final String startDelay) {
+                this.startDelay = startDelay;
+            }
+
+            public String getRepeatInterval() {
+                return repeatInterval;
+            }
+
+            public void setRepeatInterval(final String repeatInterval) {
+                this.repeatInterval = repeatInterval;
+            }
+        }
+    }
+
+    public static class Swivel extends BaseProvider {
+        private static final long serialVersionUID = -7409451053833491119L;
+
+        private String swivelTuringImageUrl;
+        private String swivelUrl;
+        private String sharedSecret;
+        private boolean ignoreSslErrors;
+
+        public Swivel() {
+            setId("mfa-swivel");
+        }
+
+        public String getSwivelTuringImageUrl() {
+            return swivelTuringImageUrl;
+        }
+
+        public void setSwivelTuringImageUrl(final String swivelTuringImageUrl) {
+            this.swivelTuringImageUrl = swivelTuringImageUrl;
+        }
+
+        public String getSwivelUrl() {
+            return swivelUrl;
+        }
+
+        public void setSwivelUrl(final String swivelUrl) {
+            this.swivelUrl = swivelUrl;
+        }
+
+        public String getSharedSecret() {
+            return sharedSecret;
+        }
+
+        public void setSharedSecret(final String sharedSecret) {
+            this.sharedSecret = sharedSecret;
+        }
+
+        public boolean isIgnoreSslErrors() {
+            return ignoreSslErrors;
+        }
+
+        public void setIgnoreSslErrors(final boolean ignoreSslErrors) {
+            this.ignoreSslErrors = ignoreSslErrors;
         }
     }
 }
